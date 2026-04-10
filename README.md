@@ -47,7 +47,7 @@ go run . -f data\origin\12_(1月)员工刷卡记录表.xls
 
 运行后会在 `data/output/` 生成以下 JSON：
 
-- `records.json`：所有明细记录（AttendanceRecord 数组）。
+- `records.json`：处理结果汇总对象，内部包含明细记录数组 `records`（AttendanceRecord 数组）以及 `total_files`、`total_records`、`employee_count`、`generated_at` 等统计字段。
 - `summary.json`：按员工汇总的统计（工号、姓名、部门、记录数）。
 
 ## 数据格式
