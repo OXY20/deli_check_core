@@ -1,0 +1,28 @@
+# 生产数据目录
+data/
+
+# Go 编译产物
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# 构建输出
+/build/
+/dist/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 临时文件
+*.tmp
+*.log
+run_output.txt
+
+# OS
+.DS_Store
+Thumbs.db
