@@ -42,7 +42,8 @@ func Compose(inputDir, outputDir string) (*ComposeResult, error) {
 		if e.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(strings.ToLower(e.Name()), ".xls") {
+		lower := strings.ToLower(e.Name())
+		if strings.HasSuffix(lower, ".xls") || strings.HasSuffix(lower, ".xlsx") {
 			files = append(files, filepath.Join(inputDir, e.Name()))
 		}
 	}
