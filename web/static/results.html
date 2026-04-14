@@ -318,7 +318,19 @@
       document.getElementById('content').innerHTML = statsHtml;
     }
     
+    let isByPersonVisible = false;
+    
     function showByPerson() {
+      const section = document.getElementById('employeesSection');
+      const btn = document.querySelector('.func-btn');
+      
+      if (isByPersonVisible) {
+        section.classList.remove('show');
+        btn.textContent = '按人员显示';
+        isByPersonVisible = false;
+        return;
+      }
+      
       if (!globalEmpData) return;
       
       let employeesHtml = '<div class="employees-grid">';
@@ -360,8 +372,10 @@
       employeesHtml += '</div>';
       
       document.getElementById('employeesContent').innerHTML = employeesHtml;
-      document.getElementById('employeesSection').classList.add('show');
-      document.getElementById('employeesSection').scrollIntoView({ behavior: 'smooth' });
+      section.classList.add('show');
+      section.scrollIntoView({ behavior: 'smooth' });
+      btn.textContent = '收起人员显示';
+      isByPersonVisible = true;
     }
     
     // 页面加载时执行
