@@ -18,6 +18,7 @@ type AttendanceRecord struct {
 	Department   string `json:"department"`    // 部门
 	Date         string `json:"date"`          // 日期 (YYYY-MM-DD)
 	Time         string `json:"time"`          // 打卡时间
+	Location     string `json:"location"`      // 地点（多表合并模式下使用）
 }
 
 // ProcessExcel 根据文件后缀自动选择 .xls 或 .xlsx 解析器

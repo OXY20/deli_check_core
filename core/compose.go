@@ -108,6 +108,74 @@ func Compose(inputDir, outputDir string) (*ComposeResult, error) {
 	return result, nil
 }
 
+// ProcessMultipleFiles 处理多个 Excel 文件，保留原始记录并附加地点信息
+func ProcessMultipleFiles(files []string, locations []string, outputDir string) (*ComposeResult, error) {
+	if len(files) == 0 {
+		return nil, fmt.Errorf("没有需要处理的文件")
+	}
+
+	var allRecords []tools.AttendanceRecord
+	for i, f := range files {
+		recs, err := tools.ProcessExcel(f)
+		if err != nil {
+			log.Printf("解析文件失败 %s: %v", f, err)
+			continue
+		}
+		loc := ""
+		if i < len(locations) {
+			loc = locations[i]
+		}
+		for j := range recs {
+			recs[j].Location = loc
+		}
+		allRecords = append(allRecords, recs...)
+	}
+
+	// 按日期、时间、工号排序
+	sort.Slice(allRecords, func(i, j int) bool {
+		if allRecords[i].Date != allRecords[j].Date {
+			return allRecords[i].Date < allRecords[j].Date
+		}
+		if allRecords[i].Time != allRecords[j].Time {
+			return allRecords[i].Time < allRecords[j].Time
+		}
+		return allRecords[i].EmployeeID < allRecords[j].EmployeeID
+	})
+
+	empMap := make(map[string]struct{})
+	for _, r := range allRecords {
+		key := fmt.Sprintf("%s|%s", r.EmployeeID, r.EmployeeName)
+		empMap[key] = struct{}{}
+	}
+
+	result := &ComposeResult{
+		TotalFiles:    len(files),
+		TotalRecords:  len(allRecords),
+		EmployeeCount: len(empMap),
+		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
+		Records:       allRecords,
+	}
+
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建输出目录失败: %w", err)
+	}
+
+	recordsPath := filepath.Join(outputDir, "records.json")
+	if err := writeJSON(recordsPath, result); err != nil {
+		return nil, fmt.Errorf("写入 records.json 失败: %w", err)
+	}
+	log.Printf("输出文件: %s", recordsPath)
+
+	summary := buildSummary(allRecords)
+	summaryPath := filepath.Join(outputDir, "summary.json")
+	if err := writeJSON(summaryPath, summary); err != nil {
+		return nil, fmt.Errorf("写入 summary.json 失败: %w", err)
+	}
+	log.Printf("输出文件: %s", summaryPath)
+
+	return result, nil
+}
+
 // ProcessSingleFile 处理单个 Excel 文件（.xls 或 .xlsx）
 func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
 	recs, err := tools.ProcessExcel(inputFile)

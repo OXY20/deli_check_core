@@ -184,6 +184,12 @@
     color: #409EFF;
   }
 
+  .location-cell {
+    text-align: center;
+    width: 48px;
+    color: #666;
+  }
+
   .function-area {
     background: #fff;
     padding: 24px 32px;
@@ -355,6 +361,7 @@
   
   <script>
     let globalEmpData = null;
+    let isMultiTable = false;
     
     // 从 sessionStorage 获取数据
     function loadData() {
@@ -387,6 +394,7 @@
     
     function renderResults(data) {
       const { records, total_files, total_records, employee_count, generated_at } = data;
+      isMultiTable = data.is_multi_table || false;
       
       // 按员工分组
       const empMap = new Map();
@@ -400,7 +408,7 @@
             records: []
           });
         }
-        empMap.get(key).records.push({ date: r.date, time: r.time });
+        empMap.get(key).records.push({ date: r.date, time: r.time, location: r.location || '' });
       });
       
       globalEmpData = Array.from(empMap.values()).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
@@ -430,6 +438,7 @@
           <button class="func-btn" id="btnByPerson" onclick="showByPerson()">按人员显示</button>
           <button class="func-btn" id="btnMeal" onclick="showMealStats()">用餐统计</button>
           <button class="func-btn-blue" id="btnExportMeal" onclick="exportMealData()">导出用餐数据</button>
+          <button class="func-btn-blue" id="btnExportPersonnel" onclick="exportPersonnelData()">导出人员数据</button>
         </div>
       `;
       
@@ -465,6 +474,7 @@
       hideMealSection();
       
       let employeesHtml = '<div class="employees-grid">';
+      const locationTh = isMultiTable ? '<th>地点</th>' : '';
       globalEmpData.forEach(emp => {
         emp.records.sort((a, b) => {
           const dtA = a.date + ' ' + a.time;
@@ -476,11 +486,13 @@
           const meal = getMealType(r.time);
           const mealLabel = meal === 'breakfast' ? '早' : meal === 'lunch' ? '中' : meal === 'dinner' ? '晚' : '';
           const mealClass = meal || '';
+          const locationTd = isMultiTable ? `<td class="location-cell" title="${r.location}">${r.location.length > 2 ? r.location.slice(0,2) : r.location}</td>` : '';
           return `
             <tr>
               <td class="date-cell">${r.date}</td>
               <td class="time-cell">${r.time}</td>
               <td class="meal-label-cell ${mealClass}">${mealLabel}</td>
+              ${locationTd}
             </tr>
           `;
         }).join('');
@@ -501,6 +513,7 @@
                   <th>日期</th>
                   <th>时间</th>
                   <th>类别</th>
+                  ${locationTh}
                 </tr>
               </thead>
               <tbody>
@@ -666,6 +679,72 @@
       } finally {
         const exportBtn = document.getElementById('btnExportMeal');
         exportBtn.textContent = '导出用餐数据';
+        exportBtn.disabled = false;
+      }
+    }
+    
+    async function exportPersonnelData() {
+      try {
+        const raw = sessionStorage.getItem('deliResult');
+        if (!raw) {
+          alert('暂无数据可导出');
+          return;
+        }
+        const data = JSON.parse(raw);
+        if (!data.records || data.records.length === 0) {
+          alert('暂无数据可导出');
+          return;
+        }
+
+        const exportBtn = document.getElementById('btnExportPersonnel');
+        exportBtn.textContent = '导出中...';
+        exportBtn.disabled = true;
+
+        const response = await fetch('/api/export-personnel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: data.records })
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        const disposition = response.headers.get('Content-Disposition');
+        let downloadName = '';
+        if (disposition) {
+          const utf8Match = disposition.match(/filename\*=UTF-8''(.+)/);
+          if (utf8Match) {
+            downloadName = decodeURIComponent(utf8Match[1]);
+          } else {
+            const fnMatch = disposition.match(/filename="(.+)"/);
+            if (fnMatch) {
+              downloadName = fnMatch[1];
+            }
+          }
+        }
+        if (!downloadName) {
+          const now = new Date();
+          const pad = n => n.toString().padStart(2, '0');
+          downloadName = `人员数据 ${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.xlsx`;
+        }
+
+        a.download = downloadName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('导出失败: ' + err.message);
+      } finally {
+        const exportBtn = document.getElementById('btnExportPersonnel');
+        exportBtn.textContent = '导出人员数据';
         exportBtn.disabled = false;
       }
     }
