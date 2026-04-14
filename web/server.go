@@ -76,7 +76,22 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// 开发模式：直接从磁盘读取文件，支持热重载
+	if os.Getenv("DELI_WEB_DEV") == "true" {
+		data, err := os.ReadFile("web/static/index.html")
+		if err != nil {
+			log.Printf("[dev] 读取文件失败: %v，使用内嵌资源", err)
+			w.Write(indexHTML)
+			return
+		}
+		w.Write(data)
+		return
+	}
+
+	// 生产模式：使用内嵌资源
 	w.Write(indexHTML)
 }
 
