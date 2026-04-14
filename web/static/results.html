@@ -238,21 +238,36 @@
   </div>
   
   <script>
-    // 从 sessionStorage 获取数据
-    const data = JSON.parse(sessionStorage.getItem('deliResult') || '{}');
+    let globalEmpData = null;
     
-    if (!data.records || data.records.length === 0) {
+    // 从 sessionStorage 获取数据
+    function loadData() {
+      try {
+        const raw = sessionStorage.getItem('deliResult');
+        if (!raw) {
+          showEmpty();
+          return;
+        }
+        const data = JSON.parse(raw);
+        if (!data.records || data.records.length === 0) {
+          showEmpty();
+          return;
+        }
+        renderResults(data);
+      } catch (e) {
+        console.error('解析数据失败:', e);
+        showEmpty();
+      }
+    }
+    
+    function showEmpty() {
       document.getElementById('content').innerHTML = `
         <div class="empty-state">
           <p>暂无打卡记录数据</p>
-          <p style="margin-top: 10px; font-size: 14px;">请先上传考勤文件</p>
+          <p style="margin-top: 10px; font-size: 14px;">请先返回首页上传考勤文件</p>
         </div>
       `;
-    } else {
-      renderResults(data);
     }
-    
-    let globalEmpData = null;
     
     function renderResults(data) {
       const { records, total_files, total_records, employee_count, generated_at } = data;
@@ -348,6 +363,9 @@
       document.getElementById('employeesSection').classList.add('show');
       document.getElementById('employeesSection').scrollIntoView({ behavior: 'smooth' });
     }
+    
+    // 页面加载时执行
+    loadData();
   </script>
 </body>
 </html>
