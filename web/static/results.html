@@ -248,9 +248,10 @@
         </div>
       `;
       
-      // 员工卡片网格
+      // 员工卡片网格 - 按工号排序
+      const sortedEmps = Array.from(empMap.values()).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
       let employeesHtml = '<div class="employees-grid">';
-      empMap.forEach((emp, key) => {
+      sortedEmps.forEach(emp => {
         // 按日期排序
         emp.records.sort((a, b) => {
           const dtA = a.date + ' ' + a.time;
