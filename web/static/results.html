@@ -167,10 +167,21 @@
   }
 
   .meal-label-cell {
-    color: #409EFF;
     font-weight: 500;
     text-align: center;
     width: 48px;
+  }
+
+  .meal-label-cell.breakfast {
+    color: #28a745;
+  }
+
+  .meal-label-cell.lunch {
+    color: #E6A23C;
+  }
+
+  .meal-label-cell.dinner {
+    color: #409EFF;
   }
 
   .function-area {
@@ -464,11 +475,12 @@
         const recordsRows = emp.records.map(r => {
           const meal = getMealType(r.time);
           const mealLabel = meal === 'breakfast' ? '早' : meal === 'lunch' ? '中' : meal === 'dinner' ? '晚' : '';
+          const mealClass = meal || '';
           return `
             <tr>
               <td class="date-cell">${r.date}</td>
               <td class="time-cell">${r.time}</td>
-              <td class="meal-label-cell">${mealLabel}</td>
+              <td class="meal-label-cell ${mealClass}">${mealLabel}</td>
             </tr>
           `;
         }).join('');
