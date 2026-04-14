@@ -233,8 +233,11 @@ func handleExportMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	now := time.Now().Format("20060102-150405")
+	filename := fmt.Sprintf("用餐统计 %s.xlsx", now)
+
 	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	w.Header().Set("Content-Disposition", "attachment; filename=用餐统计.xlsx")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	w.Write(buf.Bytes())
 }
 
