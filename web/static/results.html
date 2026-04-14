@@ -267,6 +267,22 @@
     background-color: #218838;
   }
   
+  .func-btn-blue {
+    padding: 12px 32px;
+    background-color: #409EFF;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+    margin: 0 8px;
+  }
+  
+  .func-btn-blue:hover {
+    background-color: #66b1ff;
+  }
+  
   .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -395,6 +411,7 @@
           <h3>功能区</h3>
           <button class="func-btn" id="btnByPerson" onclick="showByPerson()">按人员显示</button>
           <button class="func-btn" id="btnMeal" onclick="showMealStats()">用餐统计</button>
+          <button class="func-btn-blue" id="btnExportMeal" onclick="exportMealData()">导出用餐数据</button>
         </div>
       `;
       
@@ -559,6 +576,52 @@
       section.scrollIntoView({ behavior: 'smooth' });
       btn.textContent = '收起用餐统计';
       isMealVisible = true;
+    }
+    
+    async function exportMealData() {
+      try {
+        const raw = sessionStorage.getItem('deliResult');
+        if (!raw) {
+          alert('暂无数据可导出');
+          return;
+        }
+        const data = JSON.parse(raw);
+        if (!data.records || data.records.length === 0) {
+          alert('暂无数据可导出');
+          return;
+        }
+
+        const exportBtn = document.getElementById('btnExportMeal');
+        exportBtn.textContent = '导出中...';
+        exportBtn.disabled = true;
+
+        const response = await fetch('/api/export-meal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: data.records })
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '用餐统计.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('导出失败: ' + err.message);
+      } finally {
+        const exportBtn = document.getElementById('btnExportMeal');
+        exportBtn.textContent = '导出用餐数据';
+        exportBtn.disabled = false;
+      }
     }
     
     // 页面加载时执行
