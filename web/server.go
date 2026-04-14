@@ -21,6 +21,9 @@ import (
 //go:embed static/index.html
 var indexHTML []byte
 
+//go:embed static/results.html
+var resultsHTML []byte
+
 // StartWebServer 启动内嵌 Web 服务并在完成后自动打开浏览器（端口被占用时自动 +1 探测）
 func StartWebServer(port string) {
 	if port == "" {
@@ -29,6 +32,7 @@ func StartWebServer(port string) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
+	mux.HandleFunc("/results", handleResults)
 	mux.HandleFunc("/api/upload", handleUpload)
 	mux.HandleFunc("/api/health", handleHealth)
 
@@ -93,6 +97,23 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	// 生产模式：使用内嵌资源
 	w.Write(indexHTML)
+}
+
+func handleResults(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	if os.Getenv("DELI_WEB_DEV") == "true" {
+		data, err := os.ReadFile("web/static/results.html")
+		if err != nil {
+			log.Printf("[dev] 读取文件失败: %v，使用内嵌资源", err)
+			w.Write(resultsHTML)
+			return
+		}
+		w.Write(data)
+		return
+	}
+
+	w.Write(resultsHTML)
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
