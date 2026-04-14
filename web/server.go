@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -282,25 +283,39 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 写入临时文件
-	tmpFile, err := os.CreateTemp("", "deli_upload_*.xls")
+	// 获取可执行文件所在目录，将上传文件保存到同目录的 data/upload 下
+	exePath, err := os.Executable()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("创建临时文件失败: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("获取程序路径失败: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer os.Remove(tmpFile.Name())
+	exeDir := filepath.Dir(exePath)
+	uploadDir := filepath.Join(exeDir, "data", "upload")
+	outputDir := filepath.Join(exeDir, "data", "output")
+	_ = os.MkdirAll(uploadDir, 0755)
+	_ = os.MkdirAll(outputDir, 0755)
 
-	if _, err := io.Copy(tmpFile, file); err != nil {
-		tmpFile.Close()
+	ext := filepath.Ext(header.Filename)
+	base := strings.TrimSuffix(header.Filename, ext)
+	timestamp := time.Now().Format("20060102_150405")
+	savedName := fmt.Sprintf("%s_%s%s", base, timestamp, ext)
+	savePath := filepath.Join(uploadDir, savedName)
+
+	outFile, err := os.Create(savePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("创建保存文件失败: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := io.Copy(outFile, file); err != nil {
+		outFile.Close()
 		http.Error(w, fmt.Sprintf("保存文件失败: %v", err), http.StatusInternalServerError)
 		return
 	}
-	tmpFile.Close()
+	outFile.Close()
 
 	// 解析
-	outputDir := "data/output"
-	_ = os.MkdirAll(outputDir, 0755)
-	result, err := core.ProcessSingleFile(tmpFile.Name(), outputDir)
+	result, err := core.ProcessSingleFile(savePath, outputDir)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("解析失败: %v", err), http.StatusInternalServerError)
 		return
