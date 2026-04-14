@@ -190,6 +190,68 @@
     display: block;
   }
   
+  .meal-section {
+    display: none;
+    margin-top: 24px;
+  }
+  
+  .meal-section.show {
+    display: block;
+  }
+  
+  .meal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  
+  .meal-table th {
+    background: #f8f9fa;
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .meal-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .meal-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .meal-table tr:hover {
+    background: #f8f9fa;
+  }
+  
+  .meal-count {
+    font-weight: 600;
+    color: #409EFF;
+  }
+  
+  .func-btn {
+    padding: 12px 32px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+    margin: 0 8px;
+  }
+  
+  .func-btn:hover {
+    background-color: #218838;
+  }
+  
   .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -234,6 +296,11 @@
     <!-- 员工详情区域（默认隐藏） -->
     <div id="employeesSection" class="employees-section">
       <div id="employeesContent"></div>
+    </div>
+    
+    <!-- 用餐统计区域（默认隐藏） -->
+    <div id="mealSection" class="meal-section">
+      <div id="mealContent"></div>
     </div>
   </div>
   
@@ -311,7 +378,8 @@
         </div>
         <div class="function-area">
           <h3>功能区</h3>
-          <button class="func-btn" onclick="showByPerson()">按人员显示</button>
+          <button class="func-btn" id="btnByPerson" onclick="showByPerson()">按人员显示</button>
+          <button class="func-btn" id="btnMeal" onclick="showMealStats()">用餐统计</button>
         </div>
       `;
       
@@ -319,19 +387,32 @@
     }
     
     let isByPersonVisible = false;
+    let isMealVisible = false;
+    
+    function hideMealSection() {
+      document.getElementById('mealSection').classList.remove('show');
+      document.getElementById('btnMeal').textContent = '用餐统计';
+      isMealVisible = false;
+    }
+    
+    function hideEmployeeSection() {
+      document.getElementById('employeesSection').classList.remove('show');
+      document.getElementById('btnByPerson').textContent = '按人员显示';
+      isByPersonVisible = false;
+    }
     
     function showByPerson() {
       const section = document.getElementById('employeesSection');
-      const btn = document.querySelector('.func-btn');
+      const btn = document.getElementById('btnByPerson');
       
       if (isByPersonVisible) {
-        section.classList.remove('show');
-        btn.textContent = '按人员显示';
-        isByPersonVisible = false;
+        hideEmployeeSection();
         return;
       }
       
       if (!globalEmpData) return;
+      
+      hideMealSection();
       
       let employeesHtml = '<div class="employees-grid">';
       globalEmpData.forEach(emp => {
@@ -376,6 +457,87 @@
       section.scrollIntoView({ behavior: 'smooth' });
       btn.textContent = '收起人员显示';
       isByPersonVisible = true;
+    }
+    
+    function timeToMinutes(timeStr) {
+      const parts = timeStr.split(':');
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+    
+    function getMealType(timeStr) {
+      const minutes = timeToMinutes(timeStr);
+      if (minutes >= 4 * 60 && minutes <= 10 * 60 + 30) return 'breakfast';
+      if (minutes >= 10 * 60 + 31 && minutes <= 15 * 60) return 'lunch';
+      if (minutes >= 16 * 60 && minutes <= 21 * 60) return 'dinner';
+      return null;
+    }
+    
+    function showMealStats() {
+      const section = document.getElementById('mealSection');
+      const btn = document.getElementById('btnMeal');
+      
+      if (isMealVisible) {
+        hideMealSection();
+        return;
+      }
+      
+      if (!globalEmpData) return;
+      
+      hideEmployeeSection();
+      
+      const stats = globalEmpData.map(emp => {
+        const breakfastDays = new Set();
+        const lunchDays = new Set();
+        const dinnerDays = new Set();
+        
+        emp.records.forEach(r => {
+          const meal = getMealType(r.time);
+          if (meal === 'breakfast') breakfastDays.add(r.date);
+          if (meal === 'lunch') lunchDays.add(r.date);
+          if (meal === 'dinner') dinnerDays.add(r.date);
+        });
+        
+        return {
+          id: emp.id,
+          name: emp.name,
+          breakfast: breakfastDays.size,
+          lunch: lunchDays.size,
+          dinner: dinnerDays.size
+        };
+      });
+      
+      let rowsHtml = stats.map(s => `
+        <tr>
+          <td>${s.id}</td>
+          <td>${s.name}</td>
+          <td class="meal-count">${s.breakfast}</td>
+          <td class="meal-count">${s.lunch}</td>
+          <td class="meal-count">${s.dinner}</td>
+        </tr>
+      `).join('');
+      
+      const tableHtml = `
+        <table class="meal-table">
+          <thead>
+            <tr>
+              <th>工号</th>
+              <th>姓名</th>
+              <th>早餐</th>
+              <th>午餐</th>
+              <th>晚餐</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      `;
+      
+      document.getElementById('mealContent').innerHTML = tableHtml;
+      section.classList.add('show');
+      section.scrollIntoView({ behavior: 'smooth' });
+      btn.textContent = '收起用餐统计';
+      isMealVisible = true;
     }
     
     // 页面加载时执行
