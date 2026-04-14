@@ -93,6 +93,8 @@
     padding: 16px 20px;
     background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%);
     color: #fff;
+    position: relative;
+    min-height: 64px;
   }
   
   .employee-header .name {
@@ -107,11 +109,24 @@
   }
   
   .record-count {
-    float: right;
-    background: rgba(255,255,255,0.2);
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    text-align: right;
+  }
+  
+  .record-count .number {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    display: block;
+  }
+  
+  .record-count .label {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 2px;
+    display: block;
   }
   
   .records-table {
@@ -432,7 +447,10 @@
         employeesHtml += `
           <div class="employee-card">
             <div class="employee-header">
-              <div class="record-count">${emp.records.length} 条记录</div>
+              <div class="record-count">
+                <span class="number">${emp.records.length}</span>
+                <span class="label">条记录</span>
+              </div>
               <div class="name">${emp.name}</div>
               <div class="info">工号: ${emp.id} | ${emp.department || '未知部门'}</div>
             </div>
