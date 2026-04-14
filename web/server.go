@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -11,11 +12,15 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"deli_check_core/core"
+	"deli_check_core/tools"
+
+	"github.com/xuri/excelize/v2"
 )
 
 //go:embed static/index.html
@@ -34,6 +39,7 @@ func StartWebServer(port string) {
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/results", handleResults)
 	mux.HandleFunc("/api/upload", handleUpload)
+	mux.HandleFunc("/api/export-meal", handleExportMeal)
 	mux.HandleFunc("/api/health", handleHealth)
 
 	listener, addr := findAvailableListener("127.0.0.1", port)
@@ -119,6 +125,133 @@ func handleResults(w http.ResponseWriter, r *http.Request) {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+type exportMealRequest struct {
+	Records []tools.AttendanceRecord `json:"records"`
+}
+
+type mealStat struct {
+	ID        string
+	Name      string
+	Breakfast int
+	Lunch     int
+	Dinner    int
+	Total     int
+}
+
+func handleExportMeal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req exportMealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("解析请求失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 按员工分组统计用餐次数（按天去重）
+	type dayMealKey struct {
+		empKey string
+		date   string
+		meal   string
+	}
+	seen := make(map[dayMealKey]struct{})
+	empMap := make(map[string]*mealStat)
+	for _, rec := range req.Records {
+		key := rec.EmployeeID + "|" + rec.EmployeeName
+		if _, ok := empMap[key]; !ok {
+			empMap[key] = &mealStat{
+				ID:   rec.EmployeeID,
+				Name: rec.EmployeeName,
+			}
+		}
+		mealType := getMealType(rec.Time)
+		if mealType == "" {
+			continue
+		}
+		dm := dayMealKey{empKey: key, date: rec.Date, meal: mealType}
+		if _, ok := seen[dm]; ok {
+			continue
+		}
+		seen[dm] = struct{}{}
+		switch mealType {
+		case "breakfast":
+			empMap[key].Breakfast++
+		case "lunch":
+			empMap[key].Lunch++
+		case "dinner":
+			empMap[key].Dinner++
+		}
+	}
+
+	var stats []mealStat
+	for _, s := range empMap {
+		s.Total = s.Breakfast + s.Lunch + s.Dinner
+		stats = append(stats, *s)
+	}
+
+	// 按工号排序
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].ID < stats[j].ID
+	})
+
+	// 生成 xlsx
+	f := excelize.NewFile()
+	sheet := "用餐统计"
+	f.SetSheetName("Sheet1", sheet)
+
+	// 表头
+	headers := []string{"工号", "姓名", "早餐", "午餐", "晚餐", "总计"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+
+	// 数据
+	for i, s := range stats {
+		row := i + 2
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), s.ID)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), s.Name)
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), s.Breakfast)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), s.Lunch)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), s.Dinner)
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), s.Total)
+	}
+
+	// 写入缓冲区
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		http.Error(w, fmt.Sprintf("生成 Excel 失败: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", "attachment; filename=用餐统计.xlsx")
+	w.Write(buf.Bytes())
+}
+
+func getMealType(timeStr string) string {
+	parts := strings.Split(timeStr, ":")
+	if len(parts) < 2 {
+		return ""
+	}
+	hour, _ := strconv.Atoi(parts[0])
+	minute, _ := strconv.Atoi(parts[1])
+	minutes := hour*60 + minute
+
+	if minutes >= 4*60 && minutes <= 10*60+30 {
+		return "breakfast"
+	}
+	if minutes >= 10*60+31 && minutes <= 15*60 {
+		return "lunch"
+	}
+	if minutes >= 16*60 && minutes <= 21*60 {
+		return "dinner"
+	}
+	return ""
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
