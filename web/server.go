@@ -193,8 +193,13 @@ func handleExportMeal(w http.ResponseWriter, r *http.Request) {
 		stats = append(stats, *s)
 	}
 
-	// 按工号排序
+	// 按工号数字排序
 	sort.Slice(stats, func(i, j int) bool {
+		a, errA := strconv.Atoi(stats[i].ID)
+		b, errB := strconv.Atoi(stats[j].ID)
+		if errA == nil && errB == nil {
+			return a < b
+		}
 		return stats[i].ID < stats[j].ID
 	})
 
