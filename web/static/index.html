@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deli Check Web</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    background-color: #ffffff;
+    color: #333;
+  }
+  
+  .hero {
+    min-height: 55vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    box-sizing: border-box;
+  }
+  
+  .main-container {
+    width: 100%;
+    max-width: 600px;
+  }
+  
+  .upload-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 30px;
+  }
+  
+  .file-path-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f5f5f5;
+    color: #666;
+    font-size: 14px;
+    cursor: not-allowed;
+  }
+  
+  .file-input {
+    display: none;
+  }
+  
+  .upload-btn {
+    padding: 8px 20px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .upload-btn:hover {
+    background-color: #e0e0e0;
+  }
+  
+  .read-btn {
+    padding: 8px 20px;
+    background-color: #28a745;
+    border: 1px solid #28a745;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #fff;
+  }
+  
+  .read-btn:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+  }
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="main-container">
+      <h1>Deli Check Web</h1>
+      
+      <div class="upload-container">
+        <input type="text" class="file-path-input" id="filePath" placeholder="请选择文件..." readonly>
+        <input type="file" class="file-input" id="fileInput" accept=".xls,.xlsx">
+        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">选择文件</button>
+        <button class="read-btn" id="readBtn">读取</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 后续添加的内容直接放在这里，不会影响上方 hero 区域的位置 -->
+  
+  <script>
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        document.getElementById('filePath').value = file.name;
+      }
+    });
+
+    document.getElementById('readBtn').addEventListener('click', async function() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert('请先选择文件');
+        return;
+      }
+
+      const btn = document.getElementById('readBtn');
+      btn.textContent = '读取中...';
+      btn.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const data = await response.json();
+        sessionStorage.setItem('deliResult', JSON.stringify(data));
+        window.location.href = '/results';
+      } catch (err) {
+        alert('读取失败: ' + err.message);
+      } finally {
+        btn.textContent = '读取';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

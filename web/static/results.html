@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打卡记录 - Deli Check Web</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    padding: 20px;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .header {
+    background: #fff;
+    padding: 24px 32px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .header h1 {
+    font-size: 24px;
+    color: #333;
+  }
+  
+  .back-btn {
+    padding: 8px 20px;
+    background-color: #6c757d;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  
+  .back-btn:hover {
+    background-color: #5a6268;
+  }
+  
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    background: #fff;
+    padding: 20px 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  
+  .stat-card .number {
+    font-size: 32px;
+    font-weight: 600;
+    color: #28a745;
+    margin-bottom: 4px;
+  }
+  
+  .stat-card .label {
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .employees-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  
+  .employee-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  
+  .employee-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%);
+    color: #fff;
+    position: relative;
+    min-height: 64px;
+  }
+  
+  .employee-header .name {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  
+  .employee-header .info {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  
+  .record-count {
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    text-align: right;
+  }
+  
+  .record-count .number {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    display: block;
+  }
+  
+  .record-count .label {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 2px;
+    display: block;
+  }
+  
+  .records-table {
+    width: 100%;
+    font-size: 13px;
+  }
+  
+  .records-table th {
+    background: #f8f9fa;
+    padding: 10px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .records-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .records-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .records-table tr:hover {
+    background: #f8f9fa;
+  }
+  
+  .date-cell {
+    color: #666;
+    white-space: nowrap;
+  }
+  
+  .time-cell {
+    color: #28a745;
+    font-weight: 500;
+  }
+  
+  .function-area {
+    background: #fff;
+    padding: 24px 32px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  
+  .function-area h3 {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 16px;
+  }
+  
+  .func-btn {
+    padding: 12px 32px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+  }
+  
+  .func-btn:hover {
+    background-color: #218838;
+  }
+  
+  .employees-section {
+    display: none;
+    margin-top: 24px;
+  }
+  
+  .employees-section.show {
+    display: block;
+  }
+  
+  .meal-section {
+    display: none;
+    margin-top: 24px;
+  }
+  
+  .meal-section.show {
+    display: block;
+  }
+  
+  .meal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  
+  .meal-table th {
+    background: #f8f9fa;
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .meal-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .meal-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .meal-table tr:hover {
+    background: #f8f9fa;
+  }
+  
+  .meal-count {
+    font-weight: 600;
+    color: #409EFF;
+  }
+  
+  .func-btn {
+    padding: 12px 32px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+    margin: 0 8px;
+  }
+  
+  .func-btn:hover {
+    background-color: #218838;
+  }
+  
+  .func-btn-blue {
+    padding: 12px 32px;
+    background-color: #409EFF;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+    margin: 0 8px;
+  }
+  
+  .func-btn-blue:hover {
+    background-color: #66b1ff;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+  }
+  
+  .loading {
+    text-align: center;
+    padding: 100px 20px;
+    color: #666;
+  }
+  
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-top-color: #28a745;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>打卡记录查询结果</h1>
+      <button class="back-btn" onclick="window.location.href='/'">返回首页</button>
+    </div>
+    
+    <div id="content">
+      <div class="loading">正在加载数据...</div>
+    </div>
+    
+    <!-- 员工详情区域（默认隐藏） -->
+    <div id="employeesSection" class="employees-section">
+      <div id="employeesContent"></div>
+    </div>
+    
+    <!-- 用餐统计区域（默认隐藏） -->
+    <div id="mealSection" class="meal-section">
+      <div id="mealContent"></div>
+    </div>
+  </div>
+  
+  <script>
+    let globalEmpData = null;
+    
+    // 从 sessionStorage 获取数据
+    function loadData() {
+      try {
+        const raw = sessionStorage.getItem('deliResult');
+        if (!raw) {
+          showEmpty();
+          return;
+        }
+        const data = JSON.parse(raw);
+        if (!data.records || data.records.length === 0) {
+          showEmpty();
+          return;
+        }
+        renderResults(data);
+      } catch (e) {
+        console.error('解析数据失败:', e);
+        showEmpty();
+      }
+    }
+    
+    function showEmpty() {
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <p>暂无打卡记录数据</p>
+          <p style="margin-top: 10px; font-size: 14px;">请先返回首页上传考勤文件</p>
+        </div>
+      `;
+    }
+    
+    function renderResults(data) {
+      const { records, total_files, total_records, employee_count, generated_at } = data;
+      
+      // 按员工分组
+      const empMap = new Map();
+      records.forEach(r => {
+        const key = `${r.employee_id}|${r.employee_name}`;
+        if (!empMap.has(key)) {
+          empMap.set(key, {
+            id: r.employee_id,
+            name: r.employee_name,
+            department: r.department,
+            records: []
+          });
+        }
+        empMap.get(key).records.push({ date: r.date, time: r.time });
+      });
+      
+      globalEmpData = Array.from(empMap.values()).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      
+      // 统计卡片 + 功能区
+      const statsHtml = `
+        <div class="stats">
+          <div class="stat-card">
+            <div class="number">${total_files || 1}</div>
+            <div class="label">处理文件数</div>
+          </div>
+          <div class="stat-card">
+            <div class="number">${employee_count || empMap.size}</div>
+            <div class="label">员工人数</div>
+          </div>
+          <div class="stat-card">
+            <div class="number">${total_records || records.length}</div>
+            <div class="label">打卡记录数</div>
+          </div>
+          <div class="stat-card">
+            <div class="number">${generated_at ? generated_at.split(' ')[0] : new Date().toISOString().split('T')[0]}</div>
+            <div class="label">生成日期</div>
+          </div>
+        </div>
+        <div class="function-area">
+          <h3>功能区</h3>
+          <button class="func-btn" id="btnByPerson" onclick="showByPerson()">按人员显示</button>
+          <button class="func-btn" id="btnMeal" onclick="showMealStats()">用餐统计</button>
+          <button class="func-btn-blue" id="btnExportMeal" onclick="exportMealData()">导出用餐数据</button>
+        </div>
+      `;
+      
+      document.getElementById('content').innerHTML = statsHtml;
+    }
+    
+    let isByPersonVisible = false;
+    let isMealVisible = false;
+    
+    function hideMealSection() {
+      document.getElementById('mealSection').classList.remove('show');
+      document.getElementById('btnMeal').textContent = '用餐统计';
+      isMealVisible = false;
+    }
+    
+    function hideEmployeeSection() {
+      document.getElementById('employeesSection').classList.remove('show');
+      document.getElementById('btnByPerson').textContent = '按人员显示';
+      isByPersonVisible = false;
+    }
+    
+    function showByPerson() {
+      const section = document.getElementById('employeesSection');
+      const btn = document.getElementById('btnByPerson');
+      
+      if (isByPersonVisible) {
+        hideEmployeeSection();
+        return;
+      }
+      
+      if (!globalEmpData) return;
+      
+      hideMealSection();
+      
+      let employeesHtml = '<div class="employees-grid">';
+      globalEmpData.forEach(emp => {
+        emp.records.sort((a, b) => {
+          const dtA = a.date + ' ' + a.time;
+          const dtB = b.date + ' ' + b.time;
+          return dtA.localeCompare(dtB);
+        });
+        
+        const recordsRows = emp.records.map(r => `
+          <tr>
+            <td class="date-cell">${r.date}</td>
+            <td class="time-cell">${r.time}</td>
+          </tr>
+        `).join('');
+        
+        employeesHtml += `
+          <div class="employee-card">
+            <div class="employee-header">
+              <div class="record-count">
+                <span class="number">${emp.records.length}</span>
+                <span class="label">条记录</span>
+              </div>
+              <div class="name">${emp.name}</div>
+              <div class="info">工号: ${emp.id} | ${emp.department || '未知部门'}</div>
+            </div>
+            <table class="records-table">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recordsRows}
+              </tbody>
+            </table>
+          </div>
+        `;
+      });
+      employeesHtml += '</div>';
+      
+      document.getElementById('employeesContent').innerHTML = employeesHtml;
+      section.classList.add('show');
+      section.scrollIntoView({ behavior: 'smooth' });
+      btn.textContent = '收起人员显示';
+      isByPersonVisible = true;
+    }
+    
+    function timeToMinutes(timeStr) {
+      const parts = timeStr.split(':');
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+    
+    function getMealType(timeStr) {
+      const minutes = timeToMinutes(timeStr);
+      if (minutes >= 4 * 60 && minutes <= 10 * 60 + 30) return 'breakfast';
+      if (minutes >= 10 * 60 + 31 && minutes <= 15 * 60) return 'lunch';
+      if (minutes >= 16 * 60 && minutes <= 21 * 60) return 'dinner';
+      return null;
+    }
+    
+    function showMealStats() {
+      const section = document.getElementById('mealSection');
+      const btn = document.getElementById('btnMeal');
+      
+      if (isMealVisible) {
+        hideMealSection();
+        return;
+      }
+      
+      if (!globalEmpData) return;
+      
+      hideEmployeeSection();
+      
+      const stats = globalEmpData.map(emp => {
+        const breakfastDays = new Set();
+        const lunchDays = new Set();
+        const dinnerDays = new Set();
+        
+        emp.records.forEach(r => {
+          const meal = getMealType(r.time);
+          if (meal === 'breakfast') breakfastDays.add(r.date);
+          if (meal === 'lunch') lunchDays.add(r.date);
+          if (meal === 'dinner') dinnerDays.add(r.date);
+        });
+        
+        return {
+          id: emp.id,
+          name: emp.name,
+          breakfast: breakfastDays.size,
+          lunch: lunchDays.size,
+          dinner: dinnerDays.size,
+          total: breakfastDays.size + lunchDays.size + dinnerDays.size
+        };
+      });
+      
+      let rowsHtml = stats.map(s => `
+        <tr>
+          <td>${s.id}</td>
+          <td>${s.name}</td>
+          <td class="meal-count">${s.breakfast}</td>
+          <td class="meal-count">${s.lunch}</td>
+          <td class="meal-count">${s.dinner}</td>
+          <td class="meal-count" style="color:#28a745">${s.total}</td>
+        </tr>
+      `).join('');
+      
+      const tableHtml = `
+        <table class="meal-table">
+          <thead>
+            <tr>
+              <th>工号</th>
+              <th>姓名</th>
+              <th>早餐</th>
+              <th>午餐</th>
+              <th>晚餐</th>
+              <th>总次数</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      `;
+      
+      document.getElementById('mealContent').innerHTML = tableHtml;
+      section.classList.add('show');
+      section.scrollIntoView({ behavior: 'smooth' });
+      btn.textContent = '收起用餐统计';
+      isMealVisible = true;
+    }
+    
+    async function exportMealData() {
+      try {
+        const raw = sessionStorage.getItem('deliResult');
+        if (!raw) {
+          alert('暂无数据可导出');
+          return;
+        }
+        const data = JSON.parse(raw);
+        if (!data.records || data.records.length === 0) {
+          alert('暂无数据可导出');
+          return;
+        }
+
+        const exportBtn = document.getElementById('btnExportMeal');
+        exportBtn.textContent = '导出中...';
+        exportBtn.disabled = true;
+
+        const response = await fetch('/api/export-meal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: data.records })
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '用餐统计.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('导出失败: ' + err.message);
+      } finally {
+        const exportBtn = document.getElementById('btnExportMeal');
+        exportBtn.textContent = '导出用餐数据';
+        exportBtn.disabled = false;
+      }
+    }
+    
+    // 页面加载时执行
+    loadData();
+  </script>
+</body>
+</html>
