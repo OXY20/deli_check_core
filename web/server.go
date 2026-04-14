@@ -42,6 +42,7 @@ func StartWebServer(port string) {
 	mux.HandleFunc("/results", handleResults)
 	mux.HandleFunc("/api/upload", handleUpload)
 	mux.HandleFunc("/api/export-meal", handleExportMeal)
+	mux.HandleFunc("/api/export-personnel", handleExportPersonnel)
 	mux.HandleFunc("/api/health", handleHealth)
 
 	listener, addr := findAvailableListener("127.0.0.1", port)
@@ -243,6 +244,92 @@ func handleExportMeal(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+func handleExportPersonnel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req exportMealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("解析请求失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Records) == 0 {
+		http.Error(w, "没有可导出的记录", http.StatusBadRequest)
+		return
+	}
+
+	// 判断是否包含地点信息
+	hasLocation := false
+	for _, rec := range req.Records {
+		if rec.Location != "" {
+			hasLocation = true
+			break
+		}
+	}
+
+	// 排序：按工号、日期、时间
+	sort.Slice(req.Records, func(i, j int) bool {
+		if req.Records[i].EmployeeID != req.Records[j].EmployeeID {
+			return req.Records[i].EmployeeID < req.Records[j].EmployeeID
+		}
+		if req.Records[i].Date != req.Records[j].Date {
+			return req.Records[i].Date < req.Records[j].Date
+		}
+		return req.Records[i].Time < req.Records[j].Time
+	})
+
+	f := excelize.NewFile()
+	sheet := "人员数据"
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{"工号", "姓名", "记录日期", "记录时间", "类别"}
+	if hasLocation {
+		headers = append(headers, "地点")
+	}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+
+	for i, rec := range req.Records {
+		row := i + 2
+		mealType := getMealType(rec.Time)
+		mealLabel := ""
+		switch mealType {
+		case "breakfast":
+			mealLabel = "早"
+		case "lunch":
+			mealLabel = "中"
+		case "dinner":
+			mealLabel = "晚"
+		}
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), rec.EmployeeID)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), rec.EmployeeName)
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), rec.Date)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), rec.Time)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), mealLabel)
+		if hasLocation {
+			f.SetCellValue(sheet, fmt.Sprintf("F%d", row), rec.Location)
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		http.Error(w, fmt.Sprintf("生成 Excel 失败: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	now := time.Now().Format("20060102-150405")
+	filename := fmt.Sprintf("人员数据 %s.xlsx", now)
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, url.PathEscape(filename)))
+	w.Write(buf.Bytes())
+}
+
 func getMealType(timeStr string) string {
 	parts := strings.Split(timeStr, ":")
 	if len(parts) < 2 {
@@ -270,20 +357,14 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("读取文件失败: %v", err), http.StatusBadRequest)
+	// 解析 multipart form（最大 128MB）
+	if err := r.ParseMultipartForm(128 << 20); err != nil {
+		http.Error(w, fmt.Sprintf("解析表单失败: %v", err), http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer r.MultipartForm.RemoveAll()
 
-	lower := strings.ToLower(header.Filename)
-	if !strings.HasSuffix(lower, ".xls") && !strings.HasSuffix(lower, ".xlsx") {
-		http.Error(w, "仅支持 .xls/.xlsx 文件", http.StatusBadRequest)
-		return
-	}
-
-	// 获取可执行文件所在目录，将上传文件保存到同目录的 data/upload 下
+	// 获取可执行文件所在目录
 	exePath, err := os.Executable()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("获取程序路径失败: %v", err), http.StatusInternalServerError)
@@ -295,34 +376,89 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	_ = os.MkdirAll(uploadDir, 0755)
 	_ = os.MkdirAll(outputDir, 0755)
 
-	ext := filepath.Ext(header.Filename)
-	base := strings.TrimSuffix(header.Filename, ext)
+	// 优先读取多文件模式
+	files := r.MultipartForm.File["files"]
+	locations := r.MultipartForm.Value["locations"]
+	isMultiTable := len(files) > 1 || (len(files) == 1 && r.FormValue("mode") == "multi")
+
+	// 兼容单文件字段 "file"
+	if len(files) == 0 {
+		if fhs := r.MultipartForm.File["file"]; len(fhs) > 0 {
+			files = append(files, fhs[0])
+		}
+	}
+
+	if len(files) == 0 {
+		http.Error(w, "请先选择文件", http.StatusBadRequest)
+		return
+	}
+
+	// 验证文件格式
+	for _, fh := range files {
+		lower := strings.ToLower(fh.Filename)
+		if !strings.HasSuffix(lower, ".xls") && !strings.HasSuffix(lower, ".xlsx") {
+			http.Error(w, "仅支持 .xls/.xlsx 文件", http.StatusBadRequest)
+			return
+		}
+	}
+
 	timestamp := time.Now().Format("20060102_150405")
-	savedName := fmt.Sprintf("%s_%s%s", base, timestamp, ext)
-	savePath := filepath.Join(uploadDir, savedName)
+	var savedPaths []string
 
-	outFile, err := os.Create(savePath)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("创建保存文件失败: %v", err), http.StatusInternalServerError)
-		return
-	}
+	for idx, fh := range files {
+		f, err := fh.Open()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("读取文件失败: %v", err), http.StatusBadRequest)
+			return
+		}
 
-	if _, err := io.Copy(outFile, file); err != nil {
+		ext := filepath.Ext(fh.Filename)
+		base := strings.TrimSuffix(fh.Filename, ext)
+		savedName := fmt.Sprintf("%s_%s_%03d%s", base, timestamp, idx+1, ext)
+		savePath := filepath.Join(uploadDir, savedName)
+
+		outFile, err := os.Create(savePath)
+		if err != nil {
+			f.Close()
+			http.Error(w, fmt.Sprintf("创建保存文件失败: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if _, err := io.Copy(outFile, f); err != nil {
+			outFile.Close()
+			f.Close()
+			http.Error(w, fmt.Sprintf("保存文件失败: %v", err), http.StatusInternalServerError)
+			return
+		}
 		outFile.Close()
-		http.Error(w, fmt.Sprintf("保存文件失败: %v", err), http.StatusInternalServerError)
-		return
+		f.Close()
+		savedPaths = append(savedPaths, savePath)
 	}
-	outFile.Close()
 
-	// 解析
-	result, err := core.ProcessSingleFile(savePath, outputDir)
+	var result *core.ComposeResult
+	if isMultiTable {
+		result, err = core.ProcessMultipleFiles(savedPaths, locations, outputDir)
+	} else {
+		result, err = core.ProcessSingleFile(savedPaths[0], outputDir)
+	}
 	if err != nil {
 		http.Error(w, fmt.Sprintf("解析失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	// 给前端返回多表模式标记和地点信息
+	resp := struct {
+		*core.ComposeResult
+		IsMultiTable bool     `json:"is_multi_table"`
+		Locations    []string `json:"locations"`
+	}{
+		ComposeResult: result,
+		IsMultiTable:  isMultiTable && len(savedPaths) > 1,
+		Locations:     locations,
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func openBrowser(url string) {

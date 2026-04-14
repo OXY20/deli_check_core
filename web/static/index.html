@@ -30,7 +30,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 30px;
+    margin-bottom: 16px;
   }
   
   .file-path-input {
@@ -81,6 +81,200 @@
     font-size: 13px;
     color: #888;
     margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .file-tip a {
+    color: #409EFF;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .file-tip a:hover {
+    text-decoration: underline;
+  }
+
+  .file-list {
+    margin-bottom: 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafafa;
+    padding: 8px 0;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    gap: 10px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .file-item:last-child {
+    border-bottom: none;
+  }
+
+  .location-input {
+    width: 72px;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .file-name {
+    flex: 1;
+    font-size: 13px;
+    color: #555;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .remove-btn {
+    width: 22px;
+    height: 22px;
+    line-height: 20px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 3px;
+  }
+
+  .remove-btn:hover {
+    background: #eee;
+    color: #e74c3c;
+  }
+
+  .empty-list-tip {
+    font-size: 13px;
+    color: #aaa;
+    text-align: center;
+    padding: 12px;
+  }
+
+  /* 人员确认弹窗 */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+
+  .modal-overlay.show {
+    display: flex;
+  }
+
+  .modal-box {
+    background: #fff;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+
+  .modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    font-size: 17px;
+    color: #333;
+  }
+
+  .modal-header p {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #888;
+  }
+
+  .modal-body {
+    padding: 16px 24px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .conflict-group {
+    margin-bottom: 16px;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    padding: 14px 16px;
+    background: #fafafa;
+  }
+
+  .conflict-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .conflict-title input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .conflict-rows {
+    padding-left: 24px;
+  }
+
+  .conflict-row {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .conflict-row .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #e6f7ff;
+    color: #1890ff;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #eee;
+    text-align: right;
+  }
+
+  .confirm-read-btn {
+    padding: 10px 28px;
+    background-color: #28a745;
+    border: 1px solid #28a745;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #fff;
+  }
+
+  .confirm-read-btn:hover {
+    background-color: #218838;
   }
  </style>
 </head>
@@ -89,42 +283,311 @@
     <div class="main-container">
       <h1>Deli Check Web</h1>
       
+      <!-- 多表模式下显示已选文件列表 -->
+      <div id="fileListContainer" style="display:none;">
+        <div class="file-list" id="fileList">
+          <div class="empty-list-tip">尚未选择文件</div>
+        </div>
+      </div>
+
       <div class="upload-container">
         <input type="text" class="file-path-input" id="filePath" placeholder="请选择文件..." readonly>
         <input type="file" class="file-input" id="fileInput" accept=".xls,.xlsx">
         <button class="upload-btn" onclick="document.getElementById('fileInput').click()">选择文件</button>
         <button class="read-btn" id="readBtn">读取</button>
       </div>
-      <p class="file-tip">请选择 Deli 打卡机导出的"员工刷卡记录表"</p>
+      <p class="file-tip">
+        <span>请选择 Deli 打卡机导出的"员工刷卡记录表"</span>
+        <a id="toggleModeLink">点击开启多表合并模式</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- 人员确认弹窗 -->
+  <div class="modal-overlay" id="conflictModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>人员确认</h3>
+        <p>请确认需要纳入统计的人员。对于同名不同工号的记录，勾选表示合并（以第一个文件的工号为参考），取消勾选将自动分配新工号。</p>
+      </div>
+      <div class="modal-body" id="conflictModalBody">
+        <!-- 动态插入人员组 -->
+      </div>
+      <div class="modal-footer">
+        <button class="confirm-read-btn" id="confirmReadBtn">确认读取</button>
+      </div>
     </div>
   </div>
   
-  <!-- 后续添加的内容直接放在这里，不会影响上方 hero 区域的位置 -->
-  
   <script>
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        document.getElementById('filePath').value = file.name;
+    let isMultiMode = false;
+    let selectedFiles = []; // { file, location }
+    let pendingUploadData = null;
+    let currentGroups = [];
+
+    const fileInput = document.getElementById('fileInput');
+    const filePath = document.getElementById('filePath');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const fileList = document.getElementById('fileList');
+    const toggleModeLink = document.getElementById('toggleModeLink');
+    const readBtn = document.getElementById('readBtn');
+    const conflictModal = document.getElementById('conflictModal');
+    const conflictModalBody = document.getElementById('conflictModalBody');
+    const confirmReadBtn = document.getElementById('confirmReadBtn');
+
+    toggleModeLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      isMultiMode = !isMultiMode;
+      if (isMultiMode) {
+        toggleModeLink.textContent = '点击关闭多表合并模式';
+        fileInput.setAttribute('multiple', 'multiple');
+        filePath.style.display = 'none';
+        fileListContainer.style.display = 'block';
+        selectedFiles = [];
+        renderFileList();
+      } else {
+        toggleModeLink.textContent = '点击开启多表合并模式';
+        fileInput.removeAttribute('multiple');
+        filePath.style.display = 'block';
+        fileListContainer.style.display = 'none';
+        selectedFiles = [];
+        filePath.value = '';
+        fileInput.value = '';
       }
     });
 
-    document.getElementById('readBtn').addEventListener('click', async function() {
-      const fileInput = document.getElementById('fileInput');
-      const file = fileInput.files[0];
+    fileInput.addEventListener('change', function(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
 
-      if (!file) {
+      if (isMultiMode) {
+        files.forEach(f => {
+          selectedFiles.push({ file: f, location: '' });
+        });
+        // 自动填充默认地点
+        selectedFiles.forEach((item, idx) => {
+          if (!item.location) {
+            item.location = '地点' + (idx + 1);
+          }
+        });
+        renderFileList();
+        fileInput.value = '';
+      } else {
+        filePath.value = files[0].name;
+        selectedFiles = [{ file: files[0], location: '' }];
+      }
+    });
+
+    function renderFileList() {
+      if (selectedFiles.length === 0) {
+        fileList.innerHTML = '<div class="empty-list-tip">尚未选择文件</div>';
+        return;
+      }
+      fileList.innerHTML = selectedFiles.map((item, idx) => `
+        <div class="file-item" data-index="${idx}">
+          <input type="text" class="location-input" maxlength="8" value="${escapeHtml(item.location)}" onchange="updateLocation(${idx}, this.value)">
+          <span class="file-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
+          <button class="remove-btn" onclick="removeFile(${idx})" title="删除">×</button>
+        </div>
+      `).join('');
+    }
+
+    function updateLocation(index, value) {
+      if (selectedFiles[index]) {
+        selectedFiles[index].location = value.trim().slice(0, 8);
+      }
+    }
+
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      // 重新编号地点（仅当原地点是默认格式时）
+      selectedFiles.forEach((item, idx) => {
+        if (/^地点\d+$/.test(item.location)) {
+          item.location = '地点' + (idx + 1);
+        }
+      });
+      renderFileList();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 获取文件索引（用于排序）
+    function getFileIndex(location) {
+      const idx = selectedFiles.findIndex(s => s.location === location);
+      return idx >= 0 ? idx : 9999;
+    }
+
+    // 构建人员组：按姓名分组，组内每个（工号，地点）平铺列出
+    function buildPersonGroups(records) {
+      const map = {}; // name -> [{id, name, location}]
+      records.forEach(r => {
+        if (!map[r.employee_name]) map[r.employee_name] = [];
+        const arr = map[r.employee_name];
+        const exists = arr.some(x => x.id === r.employee_id && x.location === (r.location || ''));
+        if (!exists) {
+          arr.push({ id: r.employee_id, name: r.employee_name, location: r.location || '' });
+        }
+      });
+
+      const groups = Object.entries(map).map(([name, items]) => {
+        // 按文件顺序排序
+        items.sort((a, b) => getFileIndex(a.location) - getFileIndex(b.location));
+        const ids = [...new Set(items.map(i => i.id))];
+        return { name, items, isConflict: ids.length > 1 };
+      });
+
+      groups.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+      return groups;
+    }
+
+    function showConflictModal(personGroups, data) {
+      pendingUploadData = data;
+      currentGroups = personGroups;
+      conflictModalBody.innerHTML = personGroups.map((g, idx) => {
+        const rowsHtml = g.items.map((item, subIdx) => {
+          const locTag = item.location ? `<span class="tag">${escapeHtml(item.location)}</span>` : '';
+          return `
+            <div class="conflict-row">
+              <input type="checkbox" id="conflict_chk_${idx}_${subIdx}" checked style="margin-right:6px;">
+              <span>工号 ${escapeHtml(item.id)} ${locTag}</span>
+            </div>`;
+        }).join('');
+        const title = g.isConflict
+          ? `<span style="color:#e6a23c;">⚠ 冲突</span> "${escapeHtml(g.name)}"（不同工号）`
+          : `"${escapeHtml(g.name)}"`;
+        return `
+          <div class="conflict-group">
+            <div class="conflict-title">${title}</div>
+            <div class="conflict-rows">${rowsHtml}</div>
+          </div>
+        `;
+      }).join('');
+      conflictModal.classList.add('show');
+    }
+
+    function hideConflictModal() {
+      conflictModal.classList.remove('show');
+      pendingUploadData = null;
+      currentGroups = [];
+    }
+
+    function applyMergeAndGo() {
+      if (!pendingUploadData) return;
+      let data = pendingUploadData;
+
+      // 收集勾选状态
+      const checkedMap = {}; // name -> Set of "id|location"
+      currentGroups.forEach((g, idx) => {
+        g.items.forEach((item, subIdx) => {
+          const chk = document.getElementById(`conflict_chk_${idx}_${subIdx}`);
+          if (chk && chk.checked) {
+            if (!checkedMap[g.name]) checkedMap[g.name] = new Set();
+            checkedMap[g.name].add(`${item.id}|${item.location}`);
+          }
+        });
+      });
+
+      // 计算文件1的最大数字工号
+      const file1Location = isMultiMode ? (selectedFiles[0]?.location || '') : '';
+      const file1Records = data.records.filter(r => (r.location || '') === file1Location);
+      let file1MaxNum = 0;
+      file1Records.forEach(r => {
+        const n = parseInt(r.employee_id, 10);
+        if (!isNaN(n) && n > file1MaxNum) file1MaxNum = n;
+      });
+      let nextNewId = file1MaxNum + 1;
+
+      // 收集文件1中已出现的人员姓名
+      const file1Names = new Set(file1Records.map(r => r.employee_name));
+
+      // 构建工号重映射表
+      const idRemap = {}; // name -> { "oldId|location" -> newId }
+
+      currentGroups.forEach(g => {
+        // 找到第一个文件中的工号作为 targetId
+        const file1Item = g.items.find(i => i.location === file1Location);
+        const targetId = file1Item ? file1Item.id : g.items[0].id;
+
+        g.items.forEach(item => {
+          const key = `${item.id}|${item.location}`;
+          const isChecked = checkedMap[g.name] && checkedMap[g.name].has(key);
+          if (!idRemap[g.name]) idRemap[g.name] = {};
+          if (isChecked) {
+            idRemap[g.name][key] = targetId;
+          } else {
+            idRemap[g.name][key] = String(nextNewId++);
+          }
+        });
+      });
+
+      // 应用到记录
+      let newRecords = data.records.map(r => ({ ...r }));
+
+      // 1) 应用工号重映射（对多文件组：勾选=合并，未勾选=分配新工号）
+      newRecords.forEach(r => {
+        const g = currentGroups.find(x => x.name === r.employee_name);
+        if (g) {
+          const key = `${r.employee_id}|${r.location || ''}`;
+          if (idRemap[r.employee_name] && idRemap[r.employee_name][key]) {
+            r.employee_id = idRemap[r.employee_name][key];
+          }
+        }
+      });
+
+      // 2) 对文件1中未出现的新人员（且不在弹窗中的），自动分配新工号
+      const multiGroupNames = new Set(currentGroups.map(g => g.name));
+      const nameToNewId = {};
+      newRecords.forEach(r => {
+        if (!multiGroupNames.has(r.employee_name) && !file1Names.has(r.employee_name)) {
+          if (!nameToNewId[r.employee_name]) {
+            nameToNewId[r.employee_name] = String(nextNewId++);
+          }
+          r.employee_id = nameToNewId[r.employee_name];
+        }
+      });
+
+      data = { ...data, records: newRecords };
+      sessionStorage.setItem('deliResult', JSON.stringify(data));
+      hideConflictModal();
+      window.location.href = '/results';
+    }
+
+    confirmReadBtn.addEventListener('click', function() {
+      const btn = confirmReadBtn;
+      btn.textContent = '处理中...';
+      btn.disabled = true;
+      setTimeout(() => {
+        applyMergeAndGo();
+        btn.textContent = '确认读取';
+        btn.disabled = false;
+      }, 50);
+    });
+
+    readBtn.addEventListener('click', async function() {
+      if (selectedFiles.length === 0) {
         alert('请先选择文件');
         return;
       }
 
-      const btn = document.getElementById('readBtn');
+      const btn = readBtn;
       btn.textContent = '读取中...';
       btn.disabled = true;
 
       try {
         const formData = new FormData();
-        formData.append('file', file);
+        if (isMultiMode) {
+          formData.append('mode', 'multi');
+          selectedFiles.forEach(item => {
+            formData.append('files', item.file);
+            formData.append('locations', item.location || '');
+          });
+        } else {
+          formData.append('file', selectedFiles[0].file);
+        }
 
         const response = await fetch('/api/upload', {
           method: 'POST',
@@ -137,11 +600,26 @@
         }
 
         const data = await response.json();
-        sessionStorage.setItem('deliResult', JSON.stringify(data));
-        window.location.href = '/results';
+        const records = data.records || [];
+        if (records.length === 0) {
+          alert('文件中未检测到打卡记录');
+          btn.textContent = '读取';
+          btn.disabled = false;
+          return;
+        }
+
+        const personGroups = buildPersonGroups(records);
+        const multiGroups = personGroups.filter(g => g.items.length > 1);
+        if (multiGroups.length > 0) {
+          btn.textContent = '读取';
+          btn.disabled = false;
+          showConflictModal(multiGroups, data);
+        } else {
+          sessionStorage.setItem('deliResult', JSON.stringify(data));
+          window.location.href = '/results';
+        }
       } catch (err) {
         alert('读取失败: ' + err.message);
-      } finally {
         btn.textContent = '读取';
         btn.disabled = false;
       }
