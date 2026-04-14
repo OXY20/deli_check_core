@@ -151,6 +151,45 @@
     font-weight: 500;
   }
   
+  .function-area {
+    background: #fff;
+    padding: 24px 32px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  
+  .function-area h3 {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 16px;
+  }
+  
+  .func-btn {
+    padding: 12px 32px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+  }
+  
+  .func-btn:hover {
+    background-color: #218838;
+  }
+  
+  .employees-section {
+    display: none;
+    margin-top: 24px;
+  }
+  
+  .employees-section.show {
+    display: block;
+  }
+  
   .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -191,6 +230,11 @@
     <div id="content">
       <div class="loading">正在加载数据...</div>
     </div>
+    
+    <!-- 员工详情区域（默认隐藏） -->
+    <div id="employeesSection" class="employees-section">
+      <div id="employeesContent"></div>
+    </div>
   </div>
   
   <script>
@@ -207,6 +251,8 @@
     } else {
       renderResults(data);
     }
+    
+    let globalEmpData = null;
     
     function renderResults(data) {
       const { records, total_files, total_records, employee_count, generated_at } = data;
@@ -226,7 +272,9 @@
         empMap.get(key).records.push({ date: r.date, time: r.time });
       });
       
-      // 统计卡片
+      globalEmpData = Array.from(empMap.values()).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      
+      // 统计卡片 + 功能区
       const statsHtml = `
         <div class="stats">
           <div class="stat-card">
@@ -246,13 +294,20 @@
             <div class="label">生成日期</div>
           </div>
         </div>
+        <div class="function-area">
+          <h3>功能区</h3>
+          <button class="func-btn" onclick="showByPerson()">按人员显示</button>
+        </div>
       `;
       
-      // 员工卡片网格 - 按工号排序
-      const sortedEmps = Array.from(empMap.values()).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      document.getElementById('content').innerHTML = statsHtml;
+    }
+    
+    function showByPerson() {
+      if (!globalEmpData) return;
+      
       let employeesHtml = '<div class="employees-grid">';
-      sortedEmps.forEach(emp => {
-        // 按日期排序
+      globalEmpData.forEach(emp => {
         emp.records.sort((a, b) => {
           const dtA = a.date + ' ' + a.time;
           const dtB = b.date + ' ' + b.time;
@@ -289,7 +344,9 @@
       });
       employeesHtml += '</div>';
       
-      document.getElementById('content').innerHTML = statsHtml + employeesHtml;
+      document.getElementById('employeesContent').innerHTML = employeesHtml;
+      document.getElementById('employeesSection').classList.add('show');
+      document.getElementById('employeesSection').scrollIntoView({ behavior: 'smooth' });
     }
   </script>
 </body>
