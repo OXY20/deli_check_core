@@ -101,6 +101,44 @@
         document.getElementById('filePath').value = file.name;
       }
     });
+
+    document.getElementById('readBtn').addEventListener('click', async function() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert('请先选择文件');
+        return;
+      }
+
+      const btn = document.getElementById('readBtn');
+      btn.textContent = '读取中...';
+      btn.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error);
+        }
+
+        const data = await response.json();
+        sessionStorage.setItem('deliResult', JSON.stringify(data));
+        window.location.href = '/results';
+      } catch (err) {
+        alert('读取失败: ' + err.message);
+      } finally {
+        btn.textContent = '读取';
+        btn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
