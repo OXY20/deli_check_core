@@ -335,8 +335,11 @@ func getMealType(timeStr string) string {
 	if len(parts) < 2 {
 		return ""
 	}
-	hour, _ := strconv.Atoi(parts[0])
-	minute, _ := strconv.Atoi(parts[1])
+	hour, errH := strconv.Atoi(parts[0])
+	minute, errM := strconv.Atoi(parts[1])
+	if errH != nil || errM != nil {
+		return ""
+	}
 	minutes := hour*60 + minute
 
 	if minutes >= 4*60 && minutes <= 10*60+30 {
@@ -413,7 +416,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		ext := filepath.Ext(fh.Filename)
-		base := strings.TrimSuffix(fh.Filename, ext)
+		base := strings.TrimSuffix(filepath.Base(fh.Filename), ext)
 		savedName := fmt.Sprintf("%s_%s_%03d%s", base, timestamp, idx+1, ext)
 		savePath := filepath.Join(uploadDir, savedName)
 
