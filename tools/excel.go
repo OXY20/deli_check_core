@@ -255,15 +255,16 @@ func splitTimes(val string) []string {
 	return res
 }
 
+var baseDateRe = regexp.MustCompile(`考勤日期[：:]\s*(\d{4})-(\d{2})-(\d{2})\s*[～~]\s*(\d{4})-(\d{2})-(\d{2})`)
+
 func findBaseDate(data [][]string) (time.Time, error) {
-	re := regexp.MustCompile(`考勤日期[：:]\s*(\d{4})-(\d{2})-(\d{2})\s*[～~]\s*(\d{4})-(\d{2})-(\d{2})`)
 	for i := 0; i < len(data) && i < 10; i++ {
 		row := data[i]
 		if row == nil {
 			continue
 		}
 		for j := 0; j < 50 && j < len(row); j++ {
-			matches := re.FindStringSubmatch(row[j])
+			matches := baseDateRe.FindStringSubmatch(row[j])
 			if len(matches) == 7 {
 				y, _ := strconv.Atoi(matches[1])
 				m, _ := strconv.Atoi(matches[2])

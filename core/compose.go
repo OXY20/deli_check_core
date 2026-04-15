@@ -142,19 +142,13 @@ func ProcessMultipleFiles(files []string, locations []string, outputDir string) 
 		return allRecords[i].EmployeeID < allRecords[j].EmployeeID
 	})
 
-	empMap := make(map[string]struct{})
-	for _, r := range allRecords {
-		key := fmt.Sprintf("%s|%s", r.EmployeeID, r.EmployeeName)
-		empMap[key] = struct{}{}
-	}
-
 	result := &ComposeResult{
-		TotalFiles:    len(files),
-		TotalRecords:  len(allRecords),
-		EmployeeCount: len(empMap),
-		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
-		Records:       allRecords,
+		TotalFiles:   len(files),
+		TotalRecords: len(allRecords),
+		GeneratedAt:  time.Now().Format("2006-01-02 15:04:05"),
+		Records:      allRecords,
 	}
+	result.EmployeeCount = recalcEmployeeCount(result.Records)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建输出目录失败: %w", err)
@@ -194,19 +188,13 @@ func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
 		return recs[i].EmployeeID < recs[j].EmployeeID
 	})
 
-	empMap := make(map[string]struct{})
-	for _, r := range recs {
-		key := fmt.Sprintf("%s|%s", r.EmployeeID, r.EmployeeName)
-		empMap[key] = struct{}{}
-	}
-
 	result := &ComposeResult{
-		TotalFiles:    1,
-		TotalRecords:  len(recs),
-		EmployeeCount: len(empMap),
-		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
-		Records:       recs,
+		TotalFiles:   1,
+		TotalRecords: len(recs),
+		GeneratedAt:  time.Now().Format("2006-01-02 15:04:05"),
+		Records:      recs,
 	}
+	result.EmployeeCount = recalcEmployeeCount(result.Records)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建输出目录失败: %w", err)
@@ -226,6 +214,15 @@ func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
 	log.Printf("输出文件: %s", summaryPath)
 
 	return result, nil
+}
+
+func recalcEmployeeCount(records []tools.AttendanceRecord) int {
+	empMap := make(map[string]struct{})
+	for _, r := range records {
+		key := fmt.Sprintf("%s|%s", r.EmployeeID, r.EmployeeName)
+		empMap[key] = struct{}{}
+	}
+	return len(empMap)
 }
 
 func buildSummary(records []tools.AttendanceRecord) []SummaryItem {
