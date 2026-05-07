@@ -199,8 +199,10 @@ func detectDayHeaderRow(row []string) (startCol, dayCount int, ok bool) {
 	if row == nil {
 		return 0, 0, false
 	}
-	startCol = -1
-	expected := 1
+
+	// 收集行中所有数字及其列号，同时检查是否存在非空非数字内容
+	// 日期表头行特征：所有非空单元格均为纯数字，不含任何文字或时间格式
+	var nums []struct{ col, val int }
 	for j := 0; j < 50 && j < len(row); j++ {
 		v := strings.TrimSpace(row[j])
 		if v == "" {
@@ -208,22 +210,31 @@ func detectDayHeaderRow(row []string) (startCol, dayCount int, ok bool) {
 		}
 		n, err := strconv.Atoi(v)
 		if err != nil {
+			// 行中存在非数字内容（如时间 "07:18" 或文字），排除数据行误判
 			return 0, 0, false
 		}
-		if startCol == -1 {
-			if n != 1 {
-				return 0, 0, false
-			}
-			startCol = j
-			dayCount = 1
-			expected = 2
-		} else {
-			if n != expected {
-				return 0, 0, false
-			}
-			dayCount++
-			expected++
+		nums = append(nums, struct{ col, val int }{j, n})
+	}
+
+	if len(nums) == 0 {
+		return 0, 0, false
+	}
+
+	// 单天模式：行中只有一个数字（如只有 31），视为仅一天的日期表头
+	if len(nums) == 1 {
+		return nums[0].col, 1, true
+	}
+
+	// 多天模式：数字连续递增即可（不一定从 1 开始，支持如 15,16,17... 的部分月考勤）
+	startCol = nums[0].col
+	dayCount = 1
+	expected := nums[0].val + 1
+	for i := 1; i < len(nums); i++ {
+		if nums[i].val != expected {
+			return 0, 0, false
 		}
+		dayCount++
+		expected++
 	}
 	return startCol, dayCount, dayCount > 0
 }
@@ -255,7 +266,11 @@ func splitTimes(val string) []string {
 	return res
 }
 
+// baseDateRe 匹配带范围的考勤日期，例如：考勤日期：2026-01-04～2026-01-31
 var baseDateRe = regexp.MustCompile(`考勤日期[：:]\s*(\d{4})-(\d{2})-(\d{2})\s*[～~]\s*(\d{4})-(\d{2})-(\d{2})`)
+
+// baseDateSingleRe 匹配仅一天的考勤日期，例如：考勤日期：2026-05-07
+var baseDateSingleRe = regexp.MustCompile(`考勤日期[：:]\s*(\d{4})-(\d{2})-(\d{2})`)
 
 func findBaseDate(data [][]string) (time.Time, error) {
 	for i := 0; i < len(data) && i < 10; i++ {
@@ -264,8 +279,21 @@ func findBaseDate(data [][]string) (time.Time, error) {
 			continue
 		}
 		for j := 0; j < 50 && j < len(row); j++ {
-			matches := baseDateRe.FindStringSubmatch(row[j])
-			if len(matches) == 7 {
+			cell := strings.TrimSpace(row[j])
+			if cell == "" {
+				continue
+			}
+
+			// 优先匹配日期范围格式：考勤日期：2026-01-04～2026-01-31
+			if matches := baseDateRe.FindStringSubmatch(cell); len(matches) == 7 {
+				y, _ := strconv.Atoi(matches[1])
+				m, _ := strconv.Atoi(matches[2])
+				d, _ := strconv.Atoi(matches[3])
+				return time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.Local), nil
+			}
+
+			// 匹配单日期格式：考勤日期：2026-05-07（仅一天考勤）
+			if matches := baseDateSingleRe.FindStringSubmatch(cell); len(matches) == 4 {
 				y, _ := strconv.Atoi(matches[1])
 				m, _ := strconv.Atoi(matches[2])
 				d, _ := strconv.Atoi(matches[3])
