@@ -19,7 +19,7 @@ func main() {
 		fmt.Printf("文件: %s\n", file)
 		fmt.Printf("========================================\n")
 
-		records, err := tools.ProcessExcel(file)
+		records, _, err := tools.ProcessExcel(file)
 		if err != nil {
 			log.Printf("解析失败: %v", err)
 			continue

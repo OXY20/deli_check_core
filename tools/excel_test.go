@@ -1,7 +1,6 @@
-package tools
+﻿package tools
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -28,7 +27,6 @@ func TestDetectDayHeaderRow_Empty(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_SingleDay(t *testing.T) {
-	// 单天考勤：表头行只有一个数字，如 "31" 表示当月第31日
 	row := make([]string, 50)
 	row[1] = "31"
 	startCol, dayCount, ok := detectDayHeaderRow(row)
@@ -44,12 +42,6 @@ func TestDetectDayHeaderRow_SingleDay(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_MultiDayFrom1(t *testing.T) {
-	// 多天考勤：1,2,3,...,31
-	row := make([]string, 50)
-	for i := 0; i < 31; i++ {
-		row[i+3] = strings.TrimSpace(string(rune('1' + i%10))) // simplified
-	}
-	// 使用实际数字构建
 	row2 := make([]string, 50)
 	row2[2] = "1"
 	row2[3] = "2"
@@ -69,7 +61,6 @@ func TestDetectDayHeaderRow_MultiDayFrom1(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_MultiDayFromNon1(t *testing.T) {
-	// 部分月考勤：15,16,17,18
 	row := make([]string, 50)
 	row[1] = "15"
 	row[2] = "16"
@@ -88,7 +79,6 @@ func TestDetectDayHeaderRow_MultiDayFromNon1(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_NonContinuous(t *testing.T) {
-	// 数字不连续：1,2,5
 	row := make([]string, 50)
 	row[0] = "1"
 	row[1] = "2"
@@ -100,10 +90,9 @@ func TestDetectDayHeaderRow_NonContinuous(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_MixedTextAndNumber(t *testing.T) {
-	// 包含非数字内容的行（如时间 "07:18"），不应识别为日期表头
 	row := make([]string, 50)
 	row[1] = "31"
-	row[2] = "备注" // 非数字内容
+	row[2] = "备注"
 	_, _, ok := detectDayHeaderRow(row)
 	if ok {
 		t.Error("含非数字内容的行不应识别为日期表头")
@@ -111,7 +100,6 @@ func TestDetectDayHeaderRow_MixedTextAndNumber(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_TimeValue(t *testing.T) {
-	// 数据行：含时间 "07:18"
 	row := make([]string, 50)
 	row[1] = "07:18"
 	_, _, ok := detectDayHeaderRow(row)
@@ -121,10 +109,9 @@ func TestDetectDayHeaderRow_TimeValue(t *testing.T) {
 }
 
 func TestDetectDayHeaderRow_MultipleNumbersWithGaps(t *testing.T) {
-	// 数字间有空列：1, , , 2（跳过空列继续）
 	row := make([]string, 50)
 	row[0] = "1"
-	row[4] = "2" // 跳过中间空列
+	row[4] = "2"
 	_, _, ok := detectDayHeaderRow(row)
 	if !ok {
 		t.Error("含空列的数字序列应仍能识别")
@@ -165,7 +152,6 @@ func TestFindBaseDate_SingleDateFormat(t *testing.T) {
 }
 
 func TestFindBaseDate_SameDayRange(t *testing.T) {
-	// 单天以范围形式呈现：2026-03-31～2026-03-31
 	data := [][]string{
 		makeRow(50),
 	}
@@ -194,7 +180,6 @@ func TestFindBaseDate_ColonVariant(t *testing.T) {
 	data := [][]string{
 		makeRow(50),
 	}
-	// 英文冒号变体
 	data[0][25] = "考勤日期:2026-04-01～2026-04-30"
 	date, err := findBaseDate(data)
 	if err != nil {
@@ -207,12 +192,10 @@ func TestFindBaseDate_ColonVariant(t *testing.T) {
 }
 
 func TestFindBaseDate_TopRowBias(t *testing.T) {
-	// 验证只扫描前10行
 	data := make([][]string, 15)
 	for i := range data {
 		data[i] = makeRow(50)
 	}
-	// 日期在第12行（超出扫描范围）
 	data[11][0] = "考勤日期：2026-05-01～2026-05-07"
 	_, err := findBaseDate(data)
 	if err == nil {
@@ -376,13 +359,13 @@ func TestBuildRecords_MultiDay(t *testing.T) {
 		dept:           "公司",
 		dayHeaderFound: true,
 		dayStartCol:    1,
-		dayCount:       3, // 3天: 1月4日~6日
+		dayCount:       3,
 		dataRows: [][]string{
 			func() []string {
 				r := make([]string, 50)
-				r[1] = "07:52" // 第1天
-				r[2] = "08:10" // 第2天
-				r[3] = "07:55" // 第3天
+				r[1] = "07:52"
+				r[2] = "08:10"
+				r[3] = "07:55"
 				return r
 			}(),
 		},
@@ -428,17 +411,16 @@ func TestBuildRecords_EmptyDataRows(t *testing.T) {
 // ==================== parseMatrix 集成测试 ====================
 
 func TestParseMatrix_SingleDayIntegration(t *testing.T) {
-	// 模拟单天考勤数据结构
 	data := [][]string{
-		makeRow(50), // Row 0: 标题
-		makeRow(50), // Row 1:
-		func() []string { // Row 2: 考勤日期
+		makeRow(50),
+		makeRow(50),
+		func() []string {
 			r := makeRow(50)
 			r[25] = "考勤日期：2026-03-31"
 			return r
 		}(),
-		makeRow(50), // Row 3:
-		func() []string { // Row 4: 员工1信息
+		makeRow(50),
+		func() []string {
 			r := makeRow(50)
 			r[4] = "工号："
 			r[5] = "1"
@@ -446,21 +428,21 @@ func TestParseMatrix_SingleDayIntegration(t *testing.T) {
 			r[11] = "张三"
 			return r
 		}(),
-		func() []string { // Row 5: 日期表头（单天31）
+		func() []string {
 			r := makeRow(50)
 			r[1] = "31"
 			return r
 		}(),
-		func() []string { // Row 6: 打卡数据
+		func() []string {
 			r := makeRow(50)
 			r[1] = "07:18\n11:38"
 			return r
 		}(),
-		func() []string { // Row 7: 空行
+		func() []string {
 			r := makeRow(50)
 			return r
 		}(),
-		func() []string { // Row 8: 员工2信息
+		func() []string {
 			r := makeRow(50)
 			r[4] = "工号："
 			r[5] = "2"
@@ -468,19 +450,22 @@ func TestParseMatrix_SingleDayIntegration(t *testing.T) {
 			r[11] = "李四"
 			return r
 		}(),
-		func() []string { // Row 9: 日期表头
+		func() []string {
 			r := makeRow(50)
 			r[1] = "31"
 			return r
 		}(),
-		// 员工2无打卡数据，应提示但不出错
 	}
-	records, err := parseMatrix(data, "test.xls")
+	records, emps, err := parseMatrix(data, "test.xls")
 	if err != nil {
 		t.Fatalf("解析失败: %v", err)
 	}
 	if len(records) != 2 {
 		t.Fatalf("应有2条记录, got %d: %+v", len(records), records)
+	}
+	// 验证员工计数包含无打卡记录的李四
+	if len(emps) != 2 {
+		t.Errorf("应有2名员工（含无打卡记录的李四）, got %d", len(emps))
 	}
 	for _, r := range records {
 		if r.Date != "2026-03-31" {
@@ -498,7 +483,7 @@ func TestParseMatrix_MultiDayIntegration(t *testing.T) {
 			return r
 		}(),
 		makeRow(50),
-		func() []string { // 员工信息
+		func() []string {
 			r := makeRow(50)
 			r[4] = "工号："
 			r[5] = "25"
@@ -508,14 +493,14 @@ func TestParseMatrix_MultiDayIntegration(t *testing.T) {
 			r[23] = "公司"
 			return r
 		}(),
-		func() []string { // 日期表头 1,2,3
+		func() []string {
 			r := makeRow(50)
 			r[1] = "1"
 			r[2] = "2"
 			r[3] = "3"
 			return r
 		}(),
-		func() []string { // 打卡数据
+		func() []string {
 			r := makeRow(50)
 			r[1] = "07:52"
 			r[2] = "08:10"
@@ -523,7 +508,7 @@ func TestParseMatrix_MultiDayIntegration(t *testing.T) {
 			return r
 		}(),
 	}
-	records, err := parseMatrix(data, "test.xls")
+	records, _, err := parseMatrix(data, "test.xls")
 	if err != nil {
 		t.Fatalf("解析失败: %v", err)
 	}
@@ -539,7 +524,6 @@ func TestParseMatrix_MultiDayIntegration(t *testing.T) {
 }
 
 func TestParseMatrix_PartialMonthIntegration(t *testing.T) {
-	// 半月考勤：从15日开始，日期表头为 15,16,17
 	data := [][]string{
 		makeRow(50),
 		func() []string {
@@ -548,7 +532,7 @@ func TestParseMatrix_PartialMonthIntegration(t *testing.T) {
 			return r
 		}(),
 		makeRow(50),
-		func() []string { // 员工信息
+		func() []string {
 			r := makeRow(50)
 			r[4] = "工号："
 			r[5] = "1"
@@ -556,14 +540,14 @@ func TestParseMatrix_PartialMonthIntegration(t *testing.T) {
 			r[11] = "测试"
 			return r
 		}(),
-		func() []string { // 日期表头 15,16,17
+		func() []string {
 			r := makeRow(50)
 			r[1] = "15"
 			r[2] = "16"
 			r[3] = "17"
 			return r
 		}(),
-		func() []string { // 打卡数据
+		func() []string {
 			r := makeRow(50)
 			r[1] = "07:30"
 			r[2] = "07:35"
@@ -571,7 +555,7 @@ func TestParseMatrix_PartialMonthIntegration(t *testing.T) {
 			return r
 		}(),
 	}
-	records, err := parseMatrix(data, "test.xls")
+	records, _, err := parseMatrix(data, "test.xls")
 	if err != nil {
 		t.Fatalf("部分月刊勤解析失败: %v", err)
 	}
@@ -591,7 +575,7 @@ func TestParseMatrix_NoDate(t *testing.T) {
 		makeRow(50),
 		makeRow(50),
 	}
-	_, err := parseMatrix(data, "test.xls")
+	_, _, err := parseMatrix(data, "test.xls")
 	if err == nil {
 		t.Error("无日期时应返回错误")
 	}
@@ -601,7 +585,6 @@ func TestParseMatrix_NoDate(t *testing.T) {
 
 func makeRow(cols int) []string {
 	r := make([]string, cols)
-	// 确保所有元素为空字符串而非 nil
 	for i := range r {
 		r[i] = ""
 	}

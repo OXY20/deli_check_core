@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	records, err := tools.ProcessExcel("data/origin/12_(1月)员工刷卡记录表.xls")
+	records, _, err := tools.ProcessExcel("data/origin/12_(1月)员工刷卡记录表.xls")
 	if err != nil {
 		log.Fatalf("解析失败: %v", err)
 	}

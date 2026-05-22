@@ -15,11 +15,12 @@ import (
 
 // ComposeResult 表示 core 处理后的结果
 type ComposeResult struct {
-	TotalFiles    int                      `json:"total_files"`
-	TotalRecords  int                      `json:"total_records"`
-	EmployeeCount int                      `json:"employee_count"`
-	GeneratedAt   string                   `json:"generated_at"`
+	TotalFiles    int                    `json:"total_files"`
+	TotalRecords  int                    `json:"total_records"`
+	EmployeeCount int                    `json:"employee_count"`
+	GeneratedAt   string                 `json:"generated_at"`
 	Records       []tools.AttendanceRecord `json:"records"`
+	AllEmployees  []tools.EmployeeInfo   `json:"all_employees,omitempty"`
 }
 
 // SummaryItem 表示单个员工的汇总统计
@@ -51,13 +52,15 @@ func Compose(inputDir, outputDir string) (*ComposeResult, error) {
 	sort.Strings(files)
 
 	var allRecords []tools.AttendanceRecord
+	var allEmployees []tools.EmployeeInfo
 	for _, f := range files {
-		recs, err := tools.ProcessExcel(f)
+		recs, emps, err := tools.ProcessExcel(f)
 		if err != nil {
 			log.Printf("解析文件失败 %s: %v", f, err)
 			continue
 		}
 		allRecords = append(allRecords, recs...)
+		allEmployees = append(allEmployees, emps...)
 	}
 
 	// 按日期、时间、工号排序，便于查看
@@ -71,10 +74,10 @@ func Compose(inputDir, outputDir string) (*ComposeResult, error) {
 		return allRecords[i].EmployeeID < allRecords[j].EmployeeID
 	})
 
-	// 统计员工数
+	// 员工数基于识别到的全部员工（含无打卡记录的），去重
 	empMap := make(map[string]struct{})
-	for _, r := range allRecords {
-		key := fmt.Sprintf("%s|%s", r.EmployeeID, r.EmployeeName)
+	for _, e := range allEmployees {
+		key := fmt.Sprintf("%s|%s", e.EmployeeID, e.EmployeeName)
 		empMap[key] = struct{}{}
 	}
 
@@ -84,6 +87,7 @@ func Compose(inputDir, outputDir string) (*ComposeResult, error) {
 		EmployeeCount: len(empMap),
 		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
 		Records:       allRecords,
+		AllEmployees:  dedupEmployees(allEmployees),
 	}
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -98,7 +102,7 @@ func Compose(inputDir, outputDir string) (*ComposeResult, error) {
 	log.Printf("输出文件: %s", recordsPath)
 
 	// 写入 summary.json（员工汇总）
-	summary := buildSummary(allRecords)
+	summary := buildSummary(allRecords, allEmployees)
 	summaryPath := filepath.Join(outputDir, "summary.json")
 	if err := writeJSON(summaryPath, summary); err != nil {
 		return nil, fmt.Errorf("写入 summary.json 失败: %w", err)
@@ -115,8 +119,9 @@ func ProcessMultipleFiles(files []string, locations []string, outputDir string) 
 	}
 
 	var allRecords []tools.AttendanceRecord
+	var allEmployees []tools.EmployeeInfo
 	for i, f := range files {
-		recs, err := tools.ProcessExcel(f)
+		recs, emps, err := tools.ProcessExcel(f)
 		if err != nil {
 			log.Printf("解析文件失败 %s: %v", f, err)
 			continue
@@ -129,6 +134,7 @@ func ProcessMultipleFiles(files []string, locations []string, outputDir string) 
 			recs[j].Location = loc
 		}
 		allRecords = append(allRecords, recs...)
+		allEmployees = append(allEmployees, emps...)
 	}
 
 	// 按日期、时间、工号排序
@@ -143,12 +149,13 @@ func ProcessMultipleFiles(files []string, locations []string, outputDir string) 
 	})
 
 	result := &ComposeResult{
-		TotalFiles:   len(files),
-		TotalRecords: len(allRecords),
-		GeneratedAt:  time.Now().Format("2006-01-02 15:04:05"),
-		Records:      allRecords,
+		TotalFiles:    len(files),
+		TotalRecords:  len(allRecords),
+		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
+		Records:       allRecords,
+		AllEmployees:  dedupEmployees(allEmployees),
 	}
-	result.EmployeeCount = recalcEmployeeCount(result.Records)
+	result.EmployeeCount = len(result.AllEmployees)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建输出目录失败: %w", err)
@@ -160,7 +167,7 @@ func ProcessMultipleFiles(files []string, locations []string, outputDir string) 
 	}
 	log.Printf("输出文件: %s", recordsPath)
 
-	summary := buildSummary(allRecords)
+	summary := buildSummary(allRecords, allEmployees)
 	summaryPath := filepath.Join(outputDir, "summary.json")
 	if err := writeJSON(summaryPath, summary); err != nil {
 		return nil, fmt.Errorf("写入 summary.json 失败: %w", err)
@@ -172,7 +179,7 @@ func ProcessMultipleFiles(files []string, locations []string, outputDir string) 
 
 // ProcessSingleFile 处理单个 Excel 文件（.xls 或 .xlsx）
 func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
-	recs, err := tools.ProcessExcel(inputFile)
+	recs, emps, err := tools.ProcessExcel(inputFile)
 	if err != nil {
 		return nil, fmt.Errorf("解析文件失败 %s: %w", inputFile, err)
 	}
@@ -189,12 +196,13 @@ func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
 	})
 
 	result := &ComposeResult{
-		TotalFiles:   1,
-		TotalRecords: len(recs),
-		GeneratedAt:  time.Now().Format("2006-01-02 15:04:05"),
-		Records:      recs,
+		TotalFiles:    1,
+		TotalRecords:  len(recs),
+		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
+		Records:       recs,
+		AllEmployees:  dedupEmployees(emps),
 	}
-	result.EmployeeCount = recalcEmployeeCount(result.Records)
+	result.EmployeeCount = len(result.AllEmployees)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("创建输出目录失败: %w", err)
@@ -206,7 +214,7 @@ func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
 	}
 	log.Printf("输出文件: %s", recordsPath)
 
-	summary := buildSummary(recs)
+	summary := buildSummary(recs, emps)
 	summaryPath := filepath.Join(outputDir, "summary.json")
 	if err := writeJSON(summaryPath, summary); err != nil {
 		return nil, fmt.Errorf("写入 summary.json 失败: %w", err)
@@ -216,7 +224,8 @@ func ProcessSingleFile(inputFile, outputDir string) (*ComposeResult, error) {
 	return result, nil
 }
 
-func recalcEmployeeCount(records []tools.AttendanceRecord) int {
+// RecalcEmployeeCount 基于考勤记录重新计算有打卡记录的员工数量（导出供 web 包使用）
+func RecalcEmployeeCount(records []tools.AttendanceRecord) int {
 	empMap := make(map[string]struct{})
 	for _, r := range records {
 		key := fmt.Sprintf("%s|%s", r.EmployeeID, r.EmployeeName)
@@ -225,16 +234,40 @@ func recalcEmployeeCount(records []tools.AttendanceRecord) int {
 	return len(empMap)
 }
 
-func buildSummary(records []tools.AttendanceRecord) []SummaryItem {
+// dedupEmployees 对员工列表去重
+func dedupEmployees(emps []tools.EmployeeInfo) []tools.EmployeeInfo {
+	seen := make(map[string]struct{})
+	var result []tools.EmployeeInfo
+	for _, e := range emps {
+		key := fmt.Sprintf("%s|%s", e.EmployeeID, e.EmployeeName)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, e)
+	}
+	return result
+}
+
+// buildSummary 构建员工汇总统计，allEmployees 用于包含无打卡记录的员工
+func buildSummary(records []tools.AttendanceRecord, allEmployees []tools.EmployeeInfo) []SummaryItem {
 	type key struct {
 		id   string
 		name string
 		dept string
 	}
 	m := make(map[key]int)
+	// 先从记录中统计
 	for _, r := range records {
 		k := key{id: r.EmployeeID, name: r.EmployeeName, dept: r.Department}
 		m[k]++
+	}
+	// 确保无打卡记录的员工也出现在汇总中
+	for _, e := range allEmployees {
+		k := key{id: e.EmployeeID, name: e.EmployeeName, dept: e.Department}
+		if _, ok := m[k]; !ok {
+			m[k] = 0
+		}
 	}
 
 	var items []SummaryItem
@@ -263,6 +296,6 @@ func writeJSON(path string, v any) error {
 	defer f.Close()
 
 	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
+	enc.SetIndent("", " ")
 	return enc.Encode(v)
 }

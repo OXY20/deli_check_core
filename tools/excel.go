@@ -21,8 +21,16 @@ type AttendanceRecord struct {
 	Location     string `json:"location"`      // 地点（多表合并模式下使用）
 }
 
+// EmployeeInfo 表示识别到的员工基本信息（包含无打卡记录的员工）
+type EmployeeInfo struct {
+	EmployeeID   string `json:"employee_id"`
+	EmployeeName string `json:"employee_name"`
+	Department   string `json:"department"`
+}
+
 // ProcessExcel 根据文件后缀自动选择 .xls 或 .xlsx 解析器
-func ProcessExcel(path string) ([]AttendanceRecord, error) {
+// 返回考勤记录列表、全部员工信息列表（含无打卡记录的员工）和错误
+func ProcessExcel(path string) ([]AttendanceRecord, []EmployeeInfo, error) {
 	lower := strings.ToLower(path)
 	if strings.HasSuffix(lower, ".xlsx") {
 		return processXlsx(path)
@@ -30,23 +38,28 @@ func ProcessExcel(path string) ([]AttendanceRecord, error) {
 	if strings.HasSuffix(lower, ".xls") {
 		return processXls(path)
 	}
-	return nil, fmt.Errorf("不支持的文件格式: %s", path)
+	return nil, nil, fmt.Errorf("不支持的文件格式: %s", path)
 }
 
 // processXls 读取 .xls 文件并解析
-func processXls(path string) ([]AttendanceRecord, error) {
+func processXls(path string) ([]AttendanceRecord, []EmployeeInfo, error) {
 	wb, err := xls.Open(path, "utf-8")
 	if err != nil {
-		return nil, fmt.Errorf("打开 xls 文件失败: %w", err)
+		return nil, nil, fmt.Errorf("打开 xls 文件失败: %w", err)
 	}
 	sheet := wb.GetSheet(0)
 	if sheet == nil {
-		return nil, fmt.Errorf("没有工作表")
+		return nil, nil, fmt.Errorf("没有工作表")
 	}
 	maxRow := int(sheet.MaxRow)
 	data := make([][]string, maxRow+1)
 	for i := 0; i <= maxRow; i++ {
 		row := sheet.Row(i)
+		// 修复：sheet.Row 可能返回 nil，空行应安全跳过
+		if row == nil {
+			data[i] = make([]string, 50)
+			continue
+		}
 		line := make([]string, 50)
 		for j := 0; j < 50; j++ {
 			line[j] = row.Col(j)
@@ -57,13 +70,14 @@ func processXls(path string) ([]AttendanceRecord, error) {
 }
 
 // parseMatrix 是统一的核心解析逻辑，接收二维字符串矩阵
-func parseMatrix(data [][]string, path string) ([]AttendanceRecord, error) {
+func parseMatrix(data [][]string, path string) ([]AttendanceRecord, []EmployeeInfo, error) {
 	baseDate, err := findBaseDate(data)
 	if err != nil {
-		return nil, fmt.Errorf("无法确定考勤基准日期: %w", err)
+		return nil, nil, fmt.Errorf("无法确定考勤基准日期: %w", err)
 	}
 
 	var records []AttendanceRecord
+	var allEmployees []EmployeeInfo
 	var current *employeeBlock
 	maxRow := len(data)
 
@@ -84,6 +98,12 @@ func parseMatrix(data [][]string, path string) ([]AttendanceRecord, error) {
 				name: empName,
 				dept: dept,
 			}
+			// 记录所有识别到的员工（含无打卡记录的）
+			allEmployees = append(allEmployees, EmployeeInfo{
+				EmployeeID:   empID,
+				EmployeeName: empName,
+				Department:   dept,
+			})
 			continue
 		}
 
@@ -116,8 +136,8 @@ func parseMatrix(data [][]string, path string) ([]AttendanceRecord, error) {
 		records = append(records, recs...)
 	}
 
-	log.Printf("文件 %s 中共读取到 %d 条数据", path, len(records))
-	return records, nil
+	log.Printf("文件 %s 中共读取到 %d 条数据，识别到 %d 名员工", path, len(records), len(allEmployees))
+	return records, allEmployees, nil
 }
 
 // employeeBlock 保存单个员工的相关信息

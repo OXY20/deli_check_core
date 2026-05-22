@@ -43,6 +43,7 @@ func StartWebServer(port string) {
 	mux.HandleFunc("/api/upload", handleUpload)
 	mux.HandleFunc("/api/export-meal", handleExportMeal)
 	mux.HandleFunc("/api/export-personnel", handleExportPersonnel)
+	mux.HandleFunc("/api/update-records", handleUpdateRecords)
 	mux.HandleFunc("/api/health", handleHealth)
 
 	listener, addr := findAvailableListener("127.0.0.1", port)
@@ -149,9 +150,22 @@ func handleExportMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 限制请求体大小为 50MB，防止异常大请求导致内存溢出
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+
 	var req exportMealRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("解析请求失败: %v", err), http.StatusBadRequest)
+		if strings.Contains(err.Error(), "http: request body too large") {
+			http.Error(w, "导出数据量超过限制（最大 50MB），请减少导出范围", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, fmt.Sprintf("解析请求数据失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 限制最大记录条数
+	if len(req.Records) > 100000 {
+		http.Error(w, fmt.Sprintf("记录数量超过限制（最大 100000 条），当前 %d 条，请分批导出", len(req.Records)), http.StatusBadRequest)
 		return
 	}
 
@@ -250,14 +264,26 @@ func handleExportPersonnel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 限制请求体大小为 50MB
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+
 	var req exportMealRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("解析请求失败: %v", err), http.StatusBadRequest)
+		if strings.Contains(err.Error(), "http: request body too large") {
+			http.Error(w, "导出数据量超过限制（最大 50MB），请减少导出范围", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, fmt.Sprintf("解析请求数据失败: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	if len(req.Records) == 0 {
 		http.Error(w, "没有可导出的记录", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Records) > 100000 {
+		http.Error(w, fmt.Sprintf("记录数量超过限制（最大 100000 条），当前 %d 条，请分批导出", len(req.Records)), http.StatusBadRequest)
 		return
 	}
 
@@ -360,9 +386,21 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 解析 multipart form（最大 128MB）
-	if err := r.ParseMultipartForm(128 << 20); err != nil {
-		http.Error(w, fmt.Sprintf("解析表单失败: %v", err), http.StatusBadRequest)
+	// 设置整体请求大小上限（50MB），防止异常请求导致内存/磁盘压力
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+
+	// 解析 multipart form（最大 50MB）
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		// MaxBytesReader 超限时给出明确中文提示
+		if strings.Contains(err.Error(), "http: request body too large") {
+			http.Error(w, "上传文件总大小超过限制（最大 50MB），请减少文件大小", http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(err.Error(), "no space left") || strings.Contains(err.Error(), "temporary failure") {
+			http.Error(w, "服务器磁盘空间不足，无法保存上传文件，请联系管理员", http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, fmt.Sprintf("解析上传表单失败: %v", err), http.StatusBadRequest)
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
@@ -396,15 +434,26 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 验证文件格式
+	// 限制最多上传 20 个文件
+	if len(files) > 20 {
+		http.Error(w, "上传文件数量超过限制（最多 20 个），请减少文件数量", http.StatusBadRequest)
+		return
+	}
+
+	// 验证文件格式与大小
 	for _, fh := range files {
 		lower := strings.ToLower(fh.Filename)
 		if !strings.HasSuffix(lower, ".xls") && !strings.HasSuffix(lower, ".xlsx") {
-			http.Error(w, "仅支持 .xls/.xlsx 文件", http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("文件「%s」格式不支持，仅支持 .xls 或 .xlsx 格式的考勤表格", fh.Filename), http.StatusBadRequest)
+			return
+		}
+		if fh.Size > 20<<20 {
+			http.Error(w, fmt.Sprintf("文件「%s」大小超过限制（最大 20MB），当前大小 %.1fMB，请压缩后重试", fh.Filename, float64(fh.Size)/(1<<20)), http.StatusBadRequest)
 			return
 		}
 	}
 
+	// 使用安全的文件名模板，并对原始文件名进行清洗
 	timestamp := time.Now().Format("20060102_150405")
 	var savedPaths []string
 
@@ -415,9 +464,17 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ext := filepath.Ext(fh.Filename)
-		base := strings.TrimSuffix(filepath.Base(fh.Filename), ext)
-		savedName := fmt.Sprintf("%s_%s_%03d%s", base, timestamp, idx+1, ext)
+		// 对文件名进行安全清洗：仅保留字母、数字、中文、下划线、连字符和句点，限制长度
+	safe := sanitizeFileName(strings.TrimSuffix(filepath.Base(fh.Filename), filepath.Ext(fh.Filename)))
+		if safe == "" {
+			safe = "upload"
+		}
+		// 原始来源：Base 是 TrimSuffix(filepath.Base(fh.Filename), ext)
+		// 改为使用 safe 后，避免原始文件名中的特殊字符影响路径和日志输出
+		savedName := fmt.Sprintf("%s_%s_%03d%s", safe, timestamp, idx+1, filepath.Ext(fh.Filename))
+		if len(savedName) > 255 {
+			savedName = savedName[:255]
+		}
 		savePath := filepath.Join(uploadDir, savedName)
 
 		outFile, err := os.Create(savePath)
@@ -462,6 +519,91 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleUpdateRecords 接收前端合并确认后的最终记录，同步更新服务端 records.json
+func handleUpdateRecords(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+
+	var req exportMealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if strings.Contains(err.Error(), "http: request body too large") {
+			http.Error(w, "更新数据量超过限制（最大 50MB），请减少数据范围", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, fmt.Sprintf("解析请求数据失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Records) == 0 {
+		http.Error(w, "没有可更新的记录", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Records) > 100000 {
+		http.Error(w, fmt.Sprintf("记录数量超过限制（最大 100000 条），当前 %d 条", len(req.Records)), http.StatusBadRequest)
+		return
+	}
+
+	// 将合并后的记录写回服务端 records.json
+	exePath, err := os.Executable()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("获取程序路径失败: %v", err), http.StatusInternalServerError)
+		return
+	}
+	exeDir := filepath.Dir(exePath)
+	outputDir := filepath.Join(exeDir, "data", "output")
+	_ = os.MkdirAll(outputDir, 0755)
+
+	result := &core.ComposeResult{
+		TotalFiles:   1,
+		TotalRecords: len(req.Records),
+		GeneratedAt:  time.Now().Format("2006-01-02 15:04:05"),
+		Records:      req.Records,
+	}
+	result.EmployeeCount = core.RecalcEmployeeCount(req.Records)
+
+	recordsPath := filepath.Join(outputDir, "records.json")
+	f, err := os.Create(recordsPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("写入文件失败: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(result); err != nil {
+		http.Error(w, fmt.Sprintf("编码 JSON 失败: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// sanitizeFileName 安全清洗文件名，仅保留安全字符并截断长度
+func sanitizeFileName(name string) string {
+	// 限制长度
+	if len([]rune(name)) > 40 {
+		runes := []rune(name)
+		name = string(runes[:40])
+	}
+	var sb strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == '_' || r == '-' || r == '.' || r == ' ' || r >= 0x4E00 && r <= 0x9FAF {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune('_')
+		}
+	}
+	return sb.String()
 }
 
 func openBrowser(url string) {

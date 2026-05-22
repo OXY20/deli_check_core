@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>deli_check_core 隐患检查报告</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --high: #dc2626;
+      --medium: #d97706;
+      --low: #059669;
+      --code-bg: #f3f4f6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #60a5fa 100%);
+      color: #fff;
+      border-radius: 20px;
+      padding: 34px 38px;
+      box-shadow: 0 18px 48px rgba(37, 99, 235, 0.24);
+    }
+
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: 30px;
+      letter-spacing: 0.02em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 880px;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 15px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0 0;
+    }
+
+    .meta-item {
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .meta-label {
+      display: block;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 12px;
+    }
+
+    .meta-value {
+      display: block;
+      margin-top: 4px;
+      font-weight: 700;
+    }
+
+    .toc,
+    .section,
+    .summary {
+      margin-top: 22px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 21px;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .toc a {
+      display: block;
+      color: var(--primary);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .cards {
+      display: grid;
+      gap: 14px;
+    }
+
+    .issue {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    .issue-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .issue-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .high { background: var(--high); }
+    .medium { background: var(--medium); }
+    .low { background: var(--low); }
+
+    .fields {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .field {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .field-label {
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .field-body {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    code {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    .feedback {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      border-radius: 12px;
+      color: #374151;
+      font-size: 13px;
+    }
+
+    .feedback strong {
+      color: #111827;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: #fafafa;
+    }
+
+    .summary-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .priority-list {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    .priority-list li {
+      margin: 8px 0;
+    }
+
+    @media (max-width: 860px) {
+      .meta,
+      .toc-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 28px 22px;
+      }
+
+      .field {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>deli_check_core 隐患检查报告</h1>
+      <p>本报告根据当前项目代码进行只读检查后整理，重点关注隐藏漏洞、稳定性问题、数据隐私、业务正确性和后续检查方向。</p>
+      <div class="meta">
+        <div class="meta-item"><span class="meta-label">项目</span><span class="meta-value">deli_check_core</span></div>
+        <div class="meta-item"><span class="meta-label">技术栈</span><span class="meta-value">Go + 本地 Web</span></div>
+        <div class="meta-item"><span class="meta-label">检查日期</span><span class="meta-value">2026-05-20</span></div>
+        <div class="meta-item"><span class="meta-label">处理状态</span><span class="meta-value">未修改业务代码</span></div>
+      </div>
+    </section>
+
+    <section class="toc">
+      <h2>模块目录</h2>
+      <div class="toc-grid">
+        <a href="#frontend">前端安全</a>
+        <a href="#api">接口与本地 Web 安全</a>
+        <a href="#file">文件上传与 Excel 解析</a>
+        <a href="#privacy">数据隐私与落盘</a>
+        <a href="#business">业务正确性</a>
+        <a href="#engineering">工程质量与依赖</a>
+        <a href="#checklist">建议检查方向</a>
+        <a href="#priority">修复优先级</a>
+      </div>
+    </section>
+
+    <section id="frontend" class="section">
+      <h2>前端安全</h2>
+      <div class="cards">
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">上传内容进入 <code>innerHTML</code>，存在 XSS 注入面</h3>
+            <span class="badge high">高风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/static/results.html:417-445</code>、<code>web/static/results.html:485-528</code>、<code>web/static/results.html:583-612</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">Excel 中的员工姓名、工号、部门、日期、时间、地点等字段被拼接到模板字符串，再写入 <code>innerHTML</code>，没有统一 HTML 转义。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">恶意 Excel 单元格可注入 HTML/JS。本地工具也有风险，因为脚本可读取同源 <code>sessionStorage</code> 中的考勤数据，并调用同源接口。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">所有来自 Excel、接口、<code>sessionStorage</code> 的字段统一转义，或改为使用 <code>textContent</code> 创建 DOM，避免直接拼接 <code>innerHTML</code>。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否优先修复。追加建议：这是当前最值得优先处理的问题。实施状态：[ ] 待实施</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">结果数据保存在 <code>sessionStorage</code>，受 XSS 影响面放大</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/static/index.html:554</code>、<code>web/static/index.html:618</code>、<code>web/static/results.html:369</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">完整考勤结果保存在浏览器会话存储中，页面刷新和结果页展示依赖该数据。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">一旦出现 XSS，脚本可以直接读取完整员工考勤记录。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">短期先修 XSS；中长期可考虑服务端临时会话 ID，前端不保存完整敏感数据。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否需要服务端会话化。追加建议：本地工具可先保留当前机制，但必须先封住 XSS。实施状态：[ ] 待确认</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="api" class="section">
+      <h2>接口与本地 Web 安全</h2>
+      <div class="cards">
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">上传接口缺少整体请求体限制和文件数量限制</h3>
+            <span class="badge high">高风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/server.go:357-465</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body"><code>ParseMultipartForm(128 &lt;&lt; 20)</code> 不是完整的请求体防护，没有额外限制上传文件数量、单文件大小和总请求大小。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">恶意请求可提交大量文件或大文件，造成内存、磁盘、CPU 消耗过高。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">使用 <code>http.MaxBytesReader</code> 限制总请求体，并限制文件数量、单文件大小和字段长度。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认具体业务上限。追加建议：根据考勤表实际大小设置较小阈值，不建议保留 128MB 默认值。实施状态：[ ] 待实施</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">导出接口完全信任前端提交的 JSON</h3>
+            <span class="badge high">高风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/server.go:146-245</code>、<code>web/server.go:247-331</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body"><code>/api/export-meal</code> 和 <code>/api/export-personnel</code> 直接接收前端 <code>records</code> 并生成 Excel，没有限制 JSON 体大小、记录条数和字段长度。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">可被构造超大请求导致内存膨胀或生成超大 Excel，也可能导出并非真实解析来源的数据。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">增加 JSON 请求体限制、记录条数限制、字段长度限制；长期考虑服务端保存解析结果，导出时按临时 ID 获取。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否需要服务端会话化。追加建议：短期先做大小限制，长期再考虑服务端状态管理。实施状态：[ ] 待实施</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">本地 POST 接口缺少 Origin/Referer 校验</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/server.go:40-46</code>、<code>web/server.go:146-465</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">虽然服务监听 <code>127.0.0.1</code>，但本机浏览器中的恶意网页仍可尝试向本地端口提交请求。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">攻击者不一定能读取响应，但可能触发上传、解析、导出等资源消耗操作。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">对非 GET 接口校验 <code>Origin</code> 或 <code>Referer</code>，仅允许当前本地服务来源；或增加一次性 token。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否接受轻量 Origin 校验。追加建议：本地工具优先做 Origin/Referer 校验，改动小、收益高。实施状态：[ ] 待实施</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="file" class="section">
+      <h2>文件上传与 Excel 解析</h2>
+      <div class="cards">
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">上传文件名缺少清洗</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/server.go:418-423</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">保存文件名由原始上传文件名派生，只使用 <code>filepath.Base</code> 降低路径穿越风险，但没有处理超长名称、控制字符、Windows 保留名和特殊字符。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">可能导致保存失败、日志混乱、路径兼容性问题。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">对基础文件名做白名单清洗并限制长度，必要时使用 <code>upload_001.xlsx</code> 之类的安全文件名。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否保留原文件名可读性。追加建议：保留前 40 个安全字符即可，兼顾可读性和安全。实施状态：[ ] 待实施</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title"><code>.xls</code> 解析存在潜在空指针风险</h3>
+            <span class="badge high">高风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>tools/excel.go:48-53</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body"><code>sheet.Row(i)</code> 可能返回 <code>nil</code>，随后直接调用 <code>row.Col(j)</code> 可能 panic。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">特定空行或异常 Excel 可能导致程序崩溃。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">补齐 <code>row == nil</code> 判断，空行保留空矩阵即可。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否优先修。追加建议：这是小改动高收益问题，建议与安全修复一起处理。实施状态：[ ] 待实施</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title"><code>.xlsx</code> 解析需要关注压缩炸弹风险</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>tools/xlsx.go:11-24</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body"><code>.xlsx</code> 本质是 zip，恶意构造文件可能在解析时造成内存或 CPU 消耗异常。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">解析阶段可能被 DoS，尤其在上传限制不足时风险更高。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">先在上传层限制文件大小，再评估 <code>excelize</code> 的打开选项和解析行列限制。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认可接受的最大 Excel 文件规模。追加建议：先做上传大小限制，再做解析行列限制。实施状态：[ ] 待实施</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="privacy" class="section">
+      <h2>数据隐私与落盘</h2>
+      <div class="cards">
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">上传文件和解析结果会持久落盘</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/server.go:370-438</code>、<code>core/compose.go:157-168</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">上传文件保存到 <code>data/upload</code>，解析结果写到 <code>data/output/records.json</code> 和 <code>summary.json</code>。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">员工姓名、工号、部门、打卡时间属于敏感个人信息，长期残留会增加泄露风险。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">Web 模式处理完成后默认删除上传源文件；是否保留输出 JSON 应由配置或调试模式控制。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否需要保留历史上传。追加建议：默认删除上传源文件，调试模式才保留。实施状态：[ ] 待实施</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="business" class="section">
+      <h2>业务正确性</h2>
+      <div class="cards">
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">员工数量统计可能漏掉无打卡记录员工</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>tools/excel.go:76-80</code>、<code>core/compose.go:219-226</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">无打卡记录员工只输出日志，不会进入 <code>records</code>，而员工人数基于记录计算。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">员工人数和 summary 可能与原始表人员数不一致，README 中“保留空记录结构”的描述与实际不符。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">确认统计口径；如需统计所有员工，应增加独立员工列表结构；如只统计有记录员工，应修正文档。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认统计口径。追加建议：这是业务正确性问题，需要主管拍板。实施状态：[ ] 待确认</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">多表合并规则在前端执行，服务端落盘口径可能不一致</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>web/static/index.html:478-557</code>、<code>web/server.go:441-465</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">服务端先解析并写入 <code>records.json</code>，前端弹窗再修改工号合并逻辑。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">页面和导出使用前端合并后的数据，但磁盘上的 <code>records.json</code> 可能是未合并前数据。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">正式业务逻辑建议移到服务端；如果只是临时页面调整，应文档说明磁盘结果是原始解析结果。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否需要服务端统一口径。追加建议：短期可先避免依赖磁盘 JSON 作为最终结果。实施状态：[ ] 待确认</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="engineering" class="section">
+      <h2>工程质量与依赖</h2>
+      <div class="cards">
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title"><code>github.com/extrame/xls</code> 依赖较老，维护风险较高</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>go.mod:6</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body"><code>.xls</code> 是 Office 二进制格式，解析库维护较少时更容易存在崩溃、越界或资源消耗问题。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">解析恶意或异常 <code>.xls</code> 文件时稳定性和安全性不可控。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">短期加输入限制和 panic 防护；长期评估是否引导使用 <code>.xlsx</code> 或替换解析方案。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认 <code>.xls</code> 是否必须长期支持。追加建议：短期不替换库，先加输入限制和 panic 防护。实施状态：[ ] 待实施</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title"><code>go.mod</code> 中 Go 版本声明异常偏新</h3>
+            <span class="badge low">低风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>go.mod:3</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">当前声明为 <code>go 1.25.5</code>，需要确认是否为实际团队环境要求。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">可能导致团队环境无法构建，或者依赖工具链行为不一致。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">先确认团队标准 Go 版本，不建议盲目修改。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认团队 Go 版本。追加建议：不要盲目修改，先确认构建环境。实施状态：[ ] 待确认</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">README 与实际默认启动行为不一致</h3>
+            <span class="badge low">低风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body"><code>README.md:14-16</code>、<code>main.go:19-40</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">README 写不传参数默认扫描 <code>data/origin/</code>，但代码实际默认启动 Web 服务。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">使用者按文档运行会得到不同结果，自动化脚本也可能误判。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">先更新 README 明确默认 Web 模式；如果需要目录扫描模式，再新增明确参数。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认产品期望。追加建议：先改文档更稳妥，不建议恢复旧行为除非主管要求。实施状态：[ ] 待确认</div>
+        </article>
+
+        <article class="issue">
+          <div class="issue-head">
+            <h3 class="issue-title">缺少自动化测试覆盖核心解析和 Web 安全边界</h3>
+            <span class="badge medium">中风险</span>
+          </div>
+          <div class="fields">
+            <div class="field"><div class="field-label">位置</div><div class="field-body">当前未发现 <code>*_test.go</code></div></div>
+            <div class="field"><div class="field-label">问题</div><div class="field-body">员工块识别、日期识别、跨行时间解析、空行处理、异常 Excel、上传限制、XSS 转义、导出记录上限缺少回归测试。</div></div>
+            <div class="field"><div class="field-label">影响</div><div class="field-body">后续修改容易引入解析回归或安全边界回退。</div></div>
+            <div class="field"><div class="field-label">建议</div><div class="field-body">先补最小单元测试，再逐步加 Web handler 边界测试。</div></div>
+          </div>
+          <div class="feedback"><strong>反馈</strong>：用户意见：待确认是否允许增加测试。追加建议：优先加能防回归的小测试，不要一开始铺很大测试框架。实施状态：[ ] 待实施</div>
+        </article>
+      </div>
+    </section>
+
+    <section id="checklist" class="summary">
+      <h2>建议检查方向</h2>
+      <div class="summary-grid">
+        <div class="summary-card"><h3>输入安全</h3><p>检查上传文件大小、文件数量、文件名、扩展名、MIME/文件头、Excel 解压炸弹、异常格式、空行、超大行列数。</p></div>
+        <div class="summary-card"><h3>前端安全</h3><p>检查所有 <code>innerHTML</code>、模板字符串、<code>sessionStorage</code> 数据渲染、下载文件名解析、XSS、DOM 注入。</p></div>
+        <div class="summary-card"><h3>本地 Web 安全</h3><p>检查监听地址、Origin/Referer、CSRF、CORS、接口方法限制、请求体大小限制、错误信息泄露。</p></div>
+        <div class="summary-card"><h3>数据隐私</h3><p>检查上传源文件、输出 JSON、日志、临时文件、浏览器 <code>sessionStorage</code> 是否残留员工敏感信息。</p></div>
+        <div class="summary-card"><h3>业务正确性</h3><p>检查员工数统计口径、无打卡员工处理、多表合并工号规则、同名员工冲突、日期范围跨月、时间格式异常。</p></div>
+        <div class="summary-card"><h3>稳定性</h3><p>检查空指针、panic、第三方库解析异常、文件句柄关闭、并发请求、端口探测、自动打开浏览器失败处理。</p></div>
+        <div class="summary-card"><h3>依赖供应链</h3><p>检查 <code>go.mod</code> Go 版本、<code>github.com/extrame/xls</code> 维护状态、<code>excelize</code> 安全公告、<code>go.sum</code> 一致性。</p></div>
+        <div class="summary-card"><h3>测试发布</h3><p>检查是否有 <code>*_test.go</code>、构建脚本、版本号一致性、README 与实际行为一致性、样例数据和二进制产物是否误提交。</p></div>
+      </div>
+    </section>
+
+    <section id="priority" class="summary">
+      <h2>建议修复优先级</h2>
+      <ol class="priority-list">
+        <li>第一优先级：修复 <code>results.html</code> 的 XSS 渲染问题，给所有接口增加请求体、记录数、字段长度限制。</li>
+        <li>第二优先级：给 POST 接口加 Origin/Referer 校验，上传文件名清洗，处理完成后清理上传文件。</li>
+        <li>第三优先级：修复 <code>.xls</code> 空行 nil panic，明确员工统计口径，修正文档与实际行为不一致。</li>
+        <li>第四优先级：补核心解析单测和 Web handler 边界测试，评估 <code>.xls</code> 依赖替换或隔离策略。</li>
+      </ol>
+      <div class="feedback"><strong>反馈</strong>：用户意见：待进一步确认修复范围。追加建议：建议先从高风险且改动小的问题开始，避免一次性重构影响当前功能。实施状态：[ ] 待确认</div>
+    </section>
+  </main>
+</body>
+</html>

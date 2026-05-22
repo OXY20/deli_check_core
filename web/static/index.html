@@ -475,7 +475,7 @@
       currentGroups = [];
     }
 
-    function applyMergeAndGo() {
+    async function applyMergeAndGo() {
       if (!pendingUploadData) return;
       let data = pendingUploadData;
 
@@ -550,11 +550,23 @@
         }
       });
 
-      data = { ...data, records: newRecords };
-      sessionStorage.setItem('deliResult', JSON.stringify(data));
-      hideConflictModal();
-      window.location.href = '/results';
-    }
+	data = { ...data, records: newRecords };
+
+	// 同步合并后的记录到服务端 records.json，确保落盘数据与展示/导出一致
+	try {
+		await fetch('/api/update-records', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ records: newRecords })
+		});
+	} catch (e) {
+		console.warn('同步服务端记录失败，不影响本地展示:', e);
+	}
+
+	sessionStorage.setItem('deliResult', JSON.stringify(data));
+	hideConflictModal();
+	window.location.href = '/results';
+}
 
     confirmReadBtn.addEventListener('click', function() {
       const btn = confirmReadBtn;
